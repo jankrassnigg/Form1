@@ -8,7 +8,6 @@
 #include <QStandardPaths>
 #include <QStyleFactory>
 #include "SoundDeviceBass.h"
-#include "SoundDeviceQt.h"
 
 static bool IsInstanceAlreadyRunning(QString appName)
 {
