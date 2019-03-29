@@ -1,5 +1,23 @@
 cmake_minimum_required(VERSION 3.14)
 
+if (NOT VCPKG_ROOT)
+
+	if(NOT DEFINED $ENV{VCPKG_ROOT})
+	  set(VCPKG_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg CACHE PATH "")
+	  message(STATUS "Environment variable VCPKG_ROOT is not available.")
+	else()
+	  set(VCPKG_ROOT $ENV{VCPKG_ROOT} CACHE PATH "")
+	  message(STATUS "Environment variable VCPKG_ROOT is available and points to '$ENV{VCPKG_ROOT}'.")
+	endif()
+
+endif()
+	
+if(NOT EXISTS ${VCPKG_ROOT}/vcpkg.exe)
+	message(FATAL_ERROR "vcpkg is not installed. Either install it manually and set the environment variable VCPKG_ROOT to its directory, or run BootstrapForm1.bat")
+endif()
+
+set(CMAKE_TOOLCHAIN_FILE ${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake CACHE STRING "")
+
 project(Form1 LANGUAGES CXX)
 
 find_package(Qt5 COMPONENTS Widgets Gui Core WinExtras Network REQUIRED)
