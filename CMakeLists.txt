@@ -1,22 +1,72 @@
 cmake_minimum_required(VERSION 3.14)
 
-if (NOT VCPKG_ROOT)
+message("This project can use vcpkg to find its 3rd party dependencies.")
+message("You can install vcpkg either manually or using InstallVcpkg.bat.")
+message("Make sure to set the environment variable 'VCPKG_ROOT' to point to your installation of vcpkg.")
+message("")
 
-	if(NOT DEFINED $ENV{VCPKG_ROOT})
-	  set(VCPKG_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg CACHE PATH "")
-	  message(STATUS "Environment variable VCPKG_ROOT is not available.")
+message(STATUS "EnvVar %VCPKG_ROOT% is '$ENV{VCPKG_ROOT}'")
+
+if (CMAKE_TOOLCHAIN_FILE)
+
+	message(STATUS "CMAKE_TOOLCHAIN_FILE is already set to '${CMAKE_TOOLCHAIN_FILE}' - not going to modify it.")
+	get_filename_component(USED_VCPKG_ROOT "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
+	get_filename_component(USED_VCPKG_ROOT "${USED_VCPKG_ROOT}" DIRECTORY)
+	get_filename_component(USED_VCPKG_ROOT "${USED_VCPKG_ROOT}" DIRECTORY)
+
+else()
+
+	if(DEFINED ENV{VCPKG_ROOT})
+		set(USED_VCPKG_ROOT "$ENV{VCPKG_ROOT}")
+		message(STATUS "EnvVar VCPKG_ROOT is specified, using that.")
 	else()
-	  set(VCPKG_ROOT $ENV{VCPKG_ROOT} CACHE PATH "")
-	  message(STATUS "Environment variable VCPKG_ROOT is available and points to '$ENV{VCPKG_ROOT}'.")
+		set(USED_VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg")
+		message(STATUS "EnvVar VCPKG_ROOT is not specified, using '${CMAKE_CURRENT_SOURCE_DIR}/vcpkg'.")
 	endif()
 
-endif()
+	if(NOT EXISTS "${USED_VCPKG_ROOT}/vcpkg.exe" OR NOT EXISTS "${USED_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+		message(FATAL_ERROR "vcpkg is not installed. Either install it manually and set the environment variable VCPKG_ROOT to its directory, or run InstallVcpkg.bat")
+	endif()
+
+	set(CMAKE_TOOLCHAIN_FILE ${USED_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake CACHE STRING "" FORCE)
+	message(STATUS "Forcing CMAKE_TOOLCHAIN_FILE to point to '${CMAKE_TOOLCHAIN_FILE}'") 
 	
-if(NOT EXISTS ${VCPKG_ROOT}/vcpkg.exe)
-	message(FATAL_ERROR "vcpkg is not installed. Either install it manually and set the environment variable VCPKG_ROOT to its directory, or run BootstrapForm1.bat")
 endif()
 
-set(CMAKE_TOOLCHAIN_FILE ${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake CACHE STRING "")
+message(STATUS "USED_VCPKG_ROOT is '${USED_VCPKG_ROOT}'")
+
+set(FORM1_VCPKG_INSTALL_3RD_PARTY_DEPS false CACHE BOOL "")
+
+if (FORM1_VCPKG_INSTALL_3RD_PARTY_DEPS)
+
+	set(VCPKG_INSTALL taglib sqlite3)
+	
+	foreach(PACKAGE ${VCPKG_INSTALL})
+
+		message("Vcpgk: Installing '${PACKAGE}', this may take a while.")
+		execute_process(COMMAND "${USED_VCPKG_ROOT}/vcpkg.exe" install "${PACKAGE}:${VCPKG_TARGET_TRIPLET}" WORKING_DIRECTORY "${USED_VCPKG_ROOT}")
+
+	endforeach()
+	
+endif()
+
+set(FORM1_VCPKG_INSTALL_QT false CACHE BOOL "")
+
+if (FORM1_VCPKG_INSTALL_QT)
+
+	set(VCPKG_INSTALL qt5-base qt5-winextras)
+	
+	foreach(PACKAGE ${VCPKG_INSTALL})
+
+		message("Vcpgk: Installing '${PACKAGE}', this may take a while.")
+		execute_process(COMMAND "${USED_VCPKG_ROOT}/vcpkg.exe" install "${PACKAGE}:${VCPKG_TARGET_TRIPLET}" WORKING_DIRECTORY "${USED_VCPKG_ROOT}")
+
+	endforeach()
+	
+endif()
+
+
+
 
 project(Form1 LANGUAGES CXX)
 
