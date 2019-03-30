@@ -111,11 +111,6 @@ find_path(TAGLIB_INCLUDE_DIR taglib/tag.h)
 find_library(TAGLIB_LIBRARY tag)
 include_directories(${TAGLIB_INCLUDE_DIR})
 
-source_group (QT\\MOC FILES ${MOC_FILES})
-source_group (QT\\UI FILES ${UI_HEADERS})
-source_group (QT FILES ${FILES_TO_UI})
-source_group (QT\\QRC FILES ${FILE_TO_QRC} ${QRC_FILES})
-
 add_executable(${PROJECT_NAME} WIN32
 	"Main.cpp"
 	"Form1.cpp"
@@ -155,6 +150,11 @@ QT5_ADD_RESOURCES(QRC_FILES ${FILE_TO_QRC})
 target_sources(${PROJECT_NAME} PRIVATE ${UI_HEADERS})
 target_sources(${PROJECT_NAME} PRIVATE ${MOC_FILES})
 target_sources(${PROJECT_NAME} PRIVATE ${QRC_FILES})
+
+source_group (QT\\MOC FILES ${MOC_FILES})
+source_group (QT\\UI FILES ${UI_HEADERS})
+source_group (QT FILES ${FILES_TO_UI})
+source_group (QT\\QRC FILES ${FILE_TO_QRC} ${QRC_FILES})
 
 find_package(Sqlite3 REQUIRED)
 find_library(SQLITE3_LIBRARY sqlite3)

@@ -12,6 +12,7 @@ public:
 
 signals:
   void DeleteItems();
+  void StartCurrentItem();
 
 protected:
   virtual void keyPressEvent(QKeyEvent* e) override;

@@ -22,6 +22,11 @@ void TrackListView::keyPressEvent(QKeyEvent* e)
     emit DeleteItems();
   }
 
+  if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter)
+  {
+    emit StartCurrentItem();
+  }
+
   QTreeView::keyPressEvent(e);
 }
 

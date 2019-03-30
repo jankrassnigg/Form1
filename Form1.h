@@ -37,6 +37,7 @@ private slots:
   void on_ShowSongButton_clicked();
 
   void onRemoveTracks();
+  void onStartCurrentTrack();
   void onVolumeChanged(int newVolume);
   void onNormalizedTrackPositionChanged(double pos);
   void onCurrentSongTimeChanged();

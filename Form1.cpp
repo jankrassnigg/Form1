@@ -95,6 +95,7 @@ Form1::Form1()
   TracksView->setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
   connect(TracksView, &QWidget::customContextMenuRequested, this, &Form1::onPlaylistContextMenu);
   connect(TracksView, &TrackListView::DeleteItems, this, &Form1::onRemoveTracks);
+  connect(TracksView, &TrackListView::StartCurrentItem, this, &Form1::onStartCurrentTrack);
 
   TracksView->setHeaderHidden(false);
 
@@ -698,8 +699,11 @@ void Form1::on_ShowSongButton_clicked()
     return;
 
   QModelIndex idx = pl->index(songIdx, 0);
-  TracksView->selectionModel()->select(idx, QItemSelectionModel::SelectionFlag::ClearAndSelect | QItemSelectionModel::SelectionFlag::Rows);
+  TracksView->setFocus();
   TracksView->scrollTo(idx);
+  TracksView->selectionModel()->select(idx, QItemSelectionModel::SelectionFlag::ClearAndSelect | QItemSelectionModel::SelectionFlag::Rows);
+  TracksView->setCurrentIndex(idx);
+
 }
 
 void Form1::onRemoveTracks()
@@ -728,6 +732,19 @@ void Form1::onRemoveTracks()
 
   // TODO: use better signal
   m_pSelectedPlaylist->Refresh();
+}
+
+void Form1::onStartCurrentTrack()
+{
+  QModelIndex index = TracksView->currentIndex();
+
+  if (!index.isValid())
+    return;
+
+  AppState::GetSingleton()->StartSongFromPlaylist(m_pSelectedPlaylist, index.row());
+
+  TracksView->setCurrentIndex(index);
+  TracksView->setFocus();
 }
 
 bool Form1::RegisterGlobalHotkeys()
