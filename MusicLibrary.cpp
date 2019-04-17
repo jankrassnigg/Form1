@@ -75,7 +75,7 @@ void MusicLibrary::SaveUserState()
 {
   std::lock_guard<std::mutex> lock(m_RecorderMutex);
 
-  if (!m_bRecordedModifcations)
+  if (!m_Recorder.m_bRecordedModifcations)
     return;
 
   {
@@ -93,8 +93,6 @@ void MusicLibrary::SaveUserState()
 
     m_Recorder.CoalesceEntries();
     m_Recorder.Save(stream);
-
-    m_bRecordedModifcations = false;
   }
 
   for (const QString& s : m_LibFilesToDeleteOnSave)
@@ -180,7 +178,7 @@ void MusicLibrary::onProfileDirectoryChanged()
     m_LibFilesToDeleteOnSave.clear();
 
     // save the state to the new directory now
-    m_bRecordedModifcations = true;
+    m_Recorder.m_bRecordedModifcations = true;
   }
 
   SaveUserState();
@@ -205,7 +203,17 @@ void MusicLibrary::CleanupThread()
 {
   LoadUserState();
 
-  CleanUpLocations();
+  // terminate the thread function as early as possible if m_bWorkersActive is set to false
+
+  if (m_bWorkersActive)
+  {
+    RestoreFromDatabase();
+  }
+
+  if (m_bWorkersActive)
+  {
+    CleanUpLocations();
+  }
 
   if (m_bWorkersActive)
   {
@@ -341,7 +349,7 @@ std::deque<SongInfo> MusicLibrary::GetAllSongs() const
     SqlExec(sql, RetrieveSongArray, &allSongs);
   }
 
-  return allSongs;
+  return std::move(allSongs);
 }
 
 std::deque<SongInfo> MusicLibrary::LookupSongs(const QString& where, const QString& orderBy) const
@@ -364,7 +372,7 @@ std::deque<SongInfo> MusicLibrary::LookupSongs(const QString& where, const QStri
     SqlExec(sql, RetrieveSongArray, &allSongs);
   }
 
-  return allSongs;
+  return std::move(allSongs);
 }
 
 void MusicLibrary::CountSongPlayed(const QString& sGuid)
@@ -390,7 +398,6 @@ void MusicLibrary::CountSongPlayed(const QString& sGuid)
 
     std::lock_guard<std::mutex> lock(m_RecorderMutex);
 
-    m_bRecordedModifcations = true;
     m_Recorder.AddModification(mod, this);
   }
 }
@@ -652,7 +659,6 @@ void MusicLibrary::UpdateSongDiscNumber(const QString& sGuid, int value, bool bR
 
     std::lock_guard<std::mutex> lock(m_RecorderMutex);
 
-    m_bRecordedModifcations = true;
     m_Recorder.AddModification(mod, this);
   }
   else
@@ -685,7 +691,6 @@ void MusicLibrary::UpdateSongRating(const QString& sGuid, int value, bool bRecor
 
     std::lock_guard<std::mutex> lock(m_RecorderMutex);
 
-    m_bRecordedModifcations = true;
     m_Recorder.AddModification(mod, this);
   }
   else
@@ -709,7 +714,6 @@ void MusicLibrary::UpdateSongVolume(const QString& sGuid, int value, bool bRecor
 
     std::lock_guard<std::mutex> lock(m_RecorderMutex);
 
-    m_bRecordedModifcations = true;
     m_Recorder.AddModification(mod, this);
   }
   else
@@ -733,7 +737,6 @@ void MusicLibrary::UpdateSongStartOffset(const QString& sGuid, int value, bool b
 
     std::lock_guard<std::mutex> lock(m_RecorderMutex);
 
-    m_bRecordedModifcations = true;
     m_Recorder.AddModification(mod, this);
   }
   else
@@ -757,7 +760,6 @@ void MusicLibrary::UpdateSongEndOffset(const QString& sGuid, int value, bool bRe
 
     std::lock_guard<std::mutex> lock(m_RecorderMutex);
 
-    m_bRecordedModifcations = true;
     m_Recorder.AddModification(mod, this);
   }
   else
@@ -790,6 +792,65 @@ void MusicLibrary::FindSongsInLocation(const QString& sLocationPrefix, std::dequ
   SqlExec(sql, RetrieveSongLocation, &out_Guids);
 }
 
+void MusicLibrary::RestoreFromDatabase()
+{
+  if (m_pSongDatabase == nullptr)
+    return;
+
+  const std::deque<SongInfo> allSongs = GetAllSongs();
+
+  for (const SongInfo& si : allSongs)
+  {
+    if (!m_bWorkersActive)
+      return;
+
+    {
+      std::lock_guard<std::mutex> lock(m_RecorderMutex);
+
+      LibraryModification mod;
+      mod.m_sSongGuid = si.m_sSongGuid;
+
+      if (si.m_iRating != 0)
+      {
+        mod.m_Type = LibraryModification::Type::SetRating;
+        mod.m_iData = si.m_iRating;
+        m_Recorder.EnsureModificationExists(mod, this);
+      }
+
+      if (si.m_iDiscNumber != 0)
+      {
+        mod.m_Type = LibraryModification::Type::SetDiscNumber;
+        mod.m_iData = si.m_iDiscNumber;
+        m_Recorder.EnsureModificationExists(mod, this);
+      }
+
+      if (si.m_iVolume != 0)
+      {
+        mod.m_Type = LibraryModification::Type::SetVolume;
+        mod.m_iData = si.m_iVolume;
+        m_Recorder.EnsureModificationExists(mod, this);
+      }
+
+      if (si.m_iStartOffset != 0)
+      {
+        mod.m_Type = LibraryModification::Type::SetStartOffset;
+        mod.m_iData = si.m_iStartOffset;
+        m_Recorder.EnsureModificationExists(mod, this);
+      }
+
+      if (si.m_iEndOffset != 0)
+      {
+        mod.m_Type = LibraryModification::Type::SetEndOffset;
+        mod.m_iData = si.m_iEndOffset;
+        m_Recorder.EnsureModificationExists(mod, this);
+      }
+    }
+
+    // don't hog the CPU with this too much, leave it running in the background
+    Sleep(1);
+  }
+}
+
 void MusicLibrary::CleanUpLocations()
 {
   if (!m_pSongDatabase)
@@ -811,7 +872,7 @@ void MusicLibrary::CleanUpLocations()
     }
   }
 
-  // no remove all locations in one transaction
+  // now remove all locations in one transaction
   if (!toRemove.empty())
   {
     SqlExec("BEGIN IMMEDIATE TRANSACTION", nullptr, nullptr);

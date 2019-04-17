@@ -22,13 +22,34 @@ template<typename T, typename CONTEXT>
 class ModificationRecorder
 {
 public:
+  mutable bool m_bRecordedModifcations = false;
+
   void AddModification(const T& mod, CONTEXT context)
   {
+    m_bRecordedModifcations = true;
+
     m_Modifications.push_back(mod);
     m_Modifications.back().m_ModTimestamp = QDateTime::currentDateTimeUtc();
     m_Modifications.back().m_sModGuid = QUuid::createUuid().toString();
 
     mod.Apply(context);
+  }
+
+  void EnsureModificationExists(const T& mod, CONTEXT context)
+  {
+    for (size_t i = 0; i < m_Modifications.size(); ++i)
+    {
+      if (m_Modifications[i].HasModificationData(mod))
+        return;
+    }
+
+    m_bRecordedModifcations = true;
+
+    m_Modifications.push_back(mod);
+    m_Modifications.back().m_ModTimestamp = QDateTime::currentDateTimeUtc();
+    m_Modifications.back().m_sModGuid = QUuid::createUuid().toString();
+
+    // do not apply the modification
   }
 
   void Save(QDataStream& stream) const
@@ -45,6 +66,8 @@ public:
       stream << m_Modifications[i].m_ModTimestamp;
       m_Modifications[i].Save(stream);
     }
+
+    m_bRecordedModifcations = false;
   }
 
   void LoadAdditional(QDataStream& stream)

@@ -32,6 +32,12 @@ struct LibraryModification : public Modification
   void Save(QDataStream& stream) const;
   void Load(QDataStream& stream);
   void Coalesce(ModificationRecorder<LibraryModification, MusicLibrary*>& recorder, size_t passThroughIndex);
+
+  bool HasModificationData(const LibraryModification& rhs) const
+  {
+    // do NOT compare the m_iDate, we only want to know whether an entry exists (not if the data is the same)
+    return (m_Type == rhs.m_Type && m_sSongGuid == rhs.m_sSongGuid);
+  }
 };
 
 class MusicLibrary : public QObject
@@ -82,6 +88,12 @@ public:
   void UpdateSongPlayDate(const QString& sGuid, int value);
   void FindSongsInLocation(const QString& sLocationPrefix, std::deque<QString>& out_Guids) const;
 
+  /// \brief Called in a background thread to synchronize modifications that are only stored in the local database back to the persistent storage
+  ///
+  /// If a local change is made and the application crashes or the data about the library state is somehow else lost,
+  /// this will ensure the state inside the database is added to the library description (the journaling entries) again.
+  void RestoreFromDatabase();
+
 signals:
   void SearchTextChanged(const QString& newText);
 
@@ -108,7 +120,6 @@ private:
   volatile bool m_bWorkersActive = false;
 
   std::mutex m_RecorderMutex;
-  bool m_bRecordedModifcations = false;
   ModificationRecorder<LibraryModification, MusicLibrary*> m_Recorder;
   std::vector<QString> m_LibFilesToDeleteOnSave;
 };
