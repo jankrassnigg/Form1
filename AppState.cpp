@@ -19,7 +19,7 @@ AppState::AppState()
 
   connect(SoundDevice::GetSingleton(), &SoundDevice::MediaReady, this, &AppState::onMediaReady);
   connect(SoundDevice::GetSingleton(), &SoundDevice::MediaFinished, this, &AppState::onMediaFinished);
-  connect(SoundDevice::GetSingleton(), &SoundDevice::MediaError, this, &AppState::onMediaError);
+  connect(SoundDevice::GetSingleton(), &SoundDevice::MediaError, this, &AppState::onMediaError, Qt::QueuedConnection);
   connect(SoundDevice::GetSingleton(), &SoundDevice::MediaPositionChanged, this, &AppState::onMediaPositionChanged);
   connect(AppConfig::GetSingleton(), &AppConfig::MusicSourceAdded, this, &AppState::onMusicSourceAdded);
   connect(AppConfig::GetSingleton(), &AppConfig::ProfileDirectoryChanged, this, &AppState::onProfileDirectoryChanged);
@@ -328,7 +328,7 @@ void AppState::SetActivePlaylist(Playlist* playlist)
 
   if (m_pActivePlaylist)
   {
-    connect(m_pActivePlaylist, &Playlist::ActiveSongChanged, this, &AppState::onActiveSongChanged, Qt::QueuedConnection);
+    connect(m_pActivePlaylist, &Playlist::ActiveSongChanged, this, &AppState::onActiveSongChanged);
     m_pActivePlaylist->Refresh();
   }
 
@@ -429,7 +429,11 @@ void AppState::onMediaFinished()
 
 void AppState::onMediaError()
 {
-  onMediaFinished();
+  if (m_pActivePlaylist == nullptr)
+    return;
+
+  m_fJumpToNormalizedTrackPosition = 0;
+  m_pActivePlaylist->ActivateNextSong();
 }
 
 void AppState::onMediaPositionChanged()
