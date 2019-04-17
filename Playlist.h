@@ -59,7 +59,7 @@ public:
   virtual bool TryActivateSong(const QString& songGuid) = 0;
 
   //static unique_ptr<Playlist> LoadFromFile(const QString& sFile);
-  void SaveToFile(const QString& sFile);
+  void SaveToFile(const QString& sFile, bool bForce);
 
   virtual bool CanSerialize() = 0;
   virtual void Save(QDataStream& stream) = 0;
@@ -91,7 +91,6 @@ signals:
 
 protected slots:
   virtual void onActiveSongChanged();
-  void onMarkModified();
 
 protected:
   virtual void ReachedEnd();

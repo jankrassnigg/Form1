@@ -67,7 +67,7 @@ public:
   void StartPlaylist(Playlist* playlist);
 
   void LoadAllPlaylists();
-  void SaveAllPlaylists();
+  void SaveAllPlaylists(bool bForce);
 
   void SaveUserState();
   void LoadUserState();
@@ -91,6 +91,7 @@ private slots:
   void onMediaFinished();
   void onMediaError();
   void onMediaPositionChanged();
+  void onProfileDirectoryChanged();
 
 private:
   void ShutdownMusicSources();

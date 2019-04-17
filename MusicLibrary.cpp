@@ -1,6 +1,6 @@
+#include "MusicLibrary.h"
 #include "AppConfig.h"
 #include "AppState.h"
-#include "MusicLibrary.h"
 #include <QDataStream>
 #include <QDirIterator>
 #include <QtConcurrent/QtConcurrentRun>
@@ -49,6 +49,7 @@ void MusicLibrary::Startup(const QString& sAppDir)
   }
 
   connect(AppState::GetSingleton(), &AppState::BusyWorkActive, this, &MusicLibrary::onBusyWorkChanged);
+  connect(AppConfig::GetSingleton(), &AppConfig::ProfileDirectoryChanged, this, &MusicLibrary::onProfileDirectoryChanged);
 }
 
 void MusicLibrary::Shutdown()
@@ -78,8 +79,6 @@ void MusicLibrary::SaveUserState()
     return;
 
   {
-    m_bRecordedModifcations = false;
-
     const QString dt = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd-hh-mm-ss");
     const QString sDir = AppConfig::GetSingleton()->GetProfileDirectory() + "/library/";
     const QString sLibFile = sDir + dt + ".f1l";
@@ -94,6 +93,8 @@ void MusicLibrary::SaveUserState()
 
     m_Recorder.CoalesceEntries();
     m_Recorder.Save(stream);
+
+    m_bRecordedModifcations = false;
   }
 
   for (const QString& s : m_LibFilesToDeleteOnSave)
@@ -168,6 +169,21 @@ void MusicLibrary::onBusyWorkChanged(bool active)
       m_WorkerTask.waitForFinished();
     }
   }
+}
+
+void MusicLibrary::onProfileDirectoryChanged()
+{
+  {
+    std::lock_guard<std::mutex> lock(m_RecorderMutex);
+
+    // do not delete the files in the previous directory
+    m_LibFilesToDeleteOnSave.clear();
+
+    // save the state to the new directory now
+    m_bRecordedModifcations = true;
+  }
+
+  SaveUserState();
 }
 
 void MusicLibrary::SqlExec(const QString& stmt, int (*callback)(void*, int, char**, char**), void* userData) const

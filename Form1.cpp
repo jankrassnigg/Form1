@@ -652,7 +652,7 @@ void Form1::onSaveUserStateTimer()
 
   AppConfig::GetSingleton()->Save(sAppDir);
   MusicLibrary::GetSingleton()->SaveUserState();
-  AppState::GetSingleton()->SaveAllPlaylists();
+  AppState::GetSingleton()->SaveAllPlaylists(false);
   AppState::GetSingleton()->SaveUserState();
 
   QTimer::singleShot(1000 * 60, this, SLOT(onSaveUserStateTimer()));

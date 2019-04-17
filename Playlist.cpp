@@ -14,7 +14,6 @@ Playlist::Playlist(const QString& sTitle, const QString& guid)
   m_sGuid = guid;
 
   connect(AppState::GetSingleton(), &AppState::ActiveSongChanged, this, &Playlist::onActiveSongChanged);
-  connect(AppConfig::GetSingleton(), &AppConfig::ProfileDirectoryChanged, this, &Playlist::onMarkModified);
 }
 
 int Playlist::columnCount(const QModelIndex& parent /*= QModelIndex()*/) const
@@ -114,9 +113,9 @@ void Playlist::ActivateNextSong()
   }
 }
 
-void Playlist::SaveToFile(const QString& sFile)
+void Playlist::SaveToFile(const QString& sFile, bool bForce)
 {
-  if (!CanSerialize() || !m_bWasModified)
+  if (!CanSerialize() || (!bForce && !m_bWasModified))
     return;
 
   QFile file(sFile);
@@ -177,11 +176,6 @@ void Playlist::onActiveSongChanged()
 {
   beginResetModel();
   endResetModel();
-}
-
-void Playlist::onMarkModified()
-{
-  m_bWasModified = true;
 }
 
 void Playlist::ReachedEnd()

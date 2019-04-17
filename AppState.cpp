@@ -22,6 +22,7 @@ AppState::AppState()
   connect(SoundDevice::GetSingleton(), &SoundDevice::MediaError, this, &AppState::onMediaError);
   connect(SoundDevice::GetSingleton(), &SoundDevice::MediaPositionChanged, this, &AppState::onMediaPositionChanged);
   connect(AppConfig::GetSingleton(), &AppConfig::MusicSourceAdded, this, &AppState::onMusicSourceAdded);
+  connect(AppConfig::GetSingleton(), &AppConfig::ProfileDirectoryChanged, this, &AppState::onProfileDirectoryChanged);
 
   m_AllPlaylists.push_back(make_unique<AllSongsPlaylist>());
   m_pActivePlaylist = nullptr;
@@ -51,7 +52,7 @@ void AppState::Startup()
 AppState::~AppState()
 {
   SaveUserState();
-  SaveAllPlaylists();
+  SaveAllPlaylists(false);
   ShutdownMusicSources();
 
   m_AllPlaylists.clear();
@@ -327,7 +328,7 @@ void AppState::SetActivePlaylist(Playlist* playlist)
 
   if (m_pActivePlaylist)
   {
-    connect(m_pActivePlaylist, &Playlist::ActiveSongChanged, this, &AppState::onActiveSongChanged);
+    connect(m_pActivePlaylist, &Playlist::ActiveSongChanged, this, &AppState::onActiveSongChanged, Qt::QueuedConnection);
     m_pActivePlaylist->Refresh();
   }
 
@@ -443,6 +444,11 @@ void AppState::onMediaPositionChanged()
 
     MusicLibrary::GetSingleton()->CountSongPlayed(m_ActiveSong.m_sSongGuid);
   }
+}
+
+void AppState::onProfileDirectoryChanged()
+{
+  SaveAllPlaylists(true);
 }
 
 Playlist* AppState::GetActivePlaylist() const
@@ -655,7 +661,7 @@ void AppState::LoadPlaylist(const QString& sPath)
   }
 }
 
-void AppState::SaveAllPlaylists()
+void AppState::SaveAllPlaylists(bool bForce)
 {
   const QString dt = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd-hh-mm-ss");
   const QString sDir = AppConfig::GetSingleton()->GetProfileDirectory() + "/playlists/";
@@ -680,7 +686,7 @@ void AppState::SaveAllPlaylists()
 
     const QString sPath = sBaseFile + m_AllPlaylists[i]->GetTitle() + ".f1pl";
 
-    m_AllPlaylists[i]->SaveToFile(sPath);
+    m_AllPlaylists[i]->SaveToFile(sPath, bForce);
   }
 
   s.endGroup();

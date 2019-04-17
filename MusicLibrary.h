@@ -87,6 +87,7 @@ signals:
 
 private slots:
   void onBusyWorkChanged(bool active);
+  void onProfileDirectoryChanged();
 
 private:
   static MusicLibrary* s_Singleton;
