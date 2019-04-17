@@ -45,9 +45,14 @@ public:
 
   const vector<unique_ptr<Playlist>>& GetAllPlaylists() const;
 
-  void AddPlaylist(unique_ptr<Playlist>&& playlist);
+  void AddPlaylist(unique_ptr<Playlist>&& playlist, bool bShowEditor);
   void DeletePlaylist(Playlist* playlist);
-  void RenamePlaylist(Playlist* playlist, const QString& newName);
+
+  /// \brief Sets a new title for the given playlist, unless another playlist already has that name. Returns true on success.
+  bool RenamePlaylist(Playlist* playlist, const QString& newName);
+
+  /// \brief Searches for a playlist with the given name. Case insensitive.
+  Playlist* FindPlaylist(const QString& name) const;
 
   void SetActivePlaylist(Playlist* playlist);
   Playlist* GetActivePlaylist() const;

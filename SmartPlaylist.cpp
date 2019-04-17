@@ -155,7 +155,7 @@ void SmartPlaylist::LookupSongByIndex(int index, SongInfo& song) const
   MusicLibrary::GetSingleton()->FindSong(guid, song);
 }
 
-void SmartPlaylist::onShowEditDlg()
+void SmartPlaylist::ShowEditor()
 {
   SmartPlaylistDlg dlg(m_Query, nullptr);
   if (dlg.exec() == QDialog::Accepted)
@@ -170,6 +170,11 @@ void SmartPlaylist::onShowEditDlg()
 
     Refresh();
   }
+}
+
+void SmartPlaylist::onShowEditDlg()
+{
+  ShowEditor();
 }
 
 QModelIndex SmartPlaylist::index(int row, int column, const QModelIndex& parent /*= QModelIndex()*/) const

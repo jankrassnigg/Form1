@@ -64,6 +64,8 @@ public:
 
   virtual void LookupSongByIndex(int index, SongInfo& song) const override;
 
+  virtual void ShowEditor() override;
+
 private slots:
   void onShowEditDlg();
 

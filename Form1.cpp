@@ -1,29 +1,29 @@
-#include "AppState.h"
 #include "Form1.h"
+#include "AppConfig.h"
+#include "AppState.h"
+#include "MusicLibrary.h"
 #include "RegularPlaylist.h"
 #include "SettingsDlg.h"
-#include "SongInfoDlg.h"
 #include "SmartPlaylist.h"
+#include "SongInfoDlg.h"
 #include <QDir>
 #include <QInputDialog>
+#include <QItemSelectionModel>
 #include <QKeyEvent>
 #include <QLocalServer>
 #include <QMenu>
+#include <QMessageBox>
 #include <QProcess>
 #include <QProxyStyle>
 #include <QSettings>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QUuid>
-#include <QMessageBox>
-#include <windows.h>
 #include <set>
-#include <QItemSelectionModel>
-#include "AppConfig.h"
-#include "MusicLibrary.h"
-#include <QStandardPaths>
+#include <windows.h>
 
 #ifdef Q_OS_WIN32
-#include<QWinTaskbarProgress>
+#include <QWinTaskbarProgress>
 #endif
 
 class SearchLineEventFilter : public QObject
@@ -36,14 +36,14 @@ public:
     switch (e->type())
     {
     case QEvent::KeyPress:
+    {
+      QKeyEvent* keyEvent = static_cast<QKeyEvent*>(e);
+      if (keyEvent->key() == Qt::Key_Escape)
       {
-        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(e);
-        if (keyEvent->key() == Qt::Key_Escape)
-        {
-          reinterpret_cast<QLineEdit*>(parent())->setText(QString());
-        }
-        break;
+        reinterpret_cast<QLineEdit*>(parent())->setText(QString());
       }
+      break;
+    }
     }
 
     return QObject::eventFilter(obj, e);
@@ -177,7 +177,7 @@ Form1::~Form1()
   settings.setValue("MainSplitter1", MainSplitter->sizes()[1]);
 }
 
-void Form1::showEvent(QShowEvent *e)
+void Form1::showEvent(QShowEvent* e)
 {
 #ifdef Q_OS_WIN32
   m_TaskbarButton->setWindow(windowHandle());
@@ -371,20 +371,30 @@ void Form1::onDeletePlaylist()
 
   Playlist* toDelete = m_pSelectedPlaylist;
 
-  ChangeSelectedPlaylist(AppState::GetSingleton()->GetAllPlaylists()[0].get());
+  int prevIndex = m_pSelectedPlaylist->GetPlaylistIndex() - 1;
+
+  ChangeSelectedPlaylist(AppState::GetSingleton()->GetAllPlaylists()[prevIndex].get());
 
   AppState::GetSingleton()->DeletePlaylist(toDelete);
 }
 
 void Form1::onRenamePlaylist()
 {
+try_again:
   bool ok = false;
   QString name = QInputDialog::getText(this, "Playlist Title", "Name:", QLineEdit::Normal, m_pSelectedPlaylist->GetTitle(), &ok);
 
-  if (!ok || name.isEmpty())
+  if (!ok)
     return;
 
-  AppState::GetSingleton()->RenamePlaylist(m_pSelectedPlaylist, name);
+  if (name.isEmpty())
+    goto try_again;
+
+  if (!AppState::GetSingleton()->RenamePlaylist(m_pSelectedPlaylist, name))
+  {
+    QMessageBox::information(this, "Playlist Name", "Another playlist already uses this name.\nPlease choose a different name.");
+    goto try_again;
+  }
 }
 
 void Form1::onAddSelectionToPlaylist()
@@ -415,16 +425,23 @@ void Form1::onAddSelectionToPlaylist()
   {
     QString nameSuggestion = AppState::GetSingleton()->SuggestPlaylistName(allSongs);
 
+  try_again:
     bool ok = false;
     QString name = QInputDialog::getText(this, "Playlist Title", "Name:", QLineEdit::Normal, nameSuggestion, &ok);
 
     if (!ok || name.isEmpty())
       return;
 
+    if (AppState::GetSingleton()->FindPlaylist(name) != nullptr)
+    {
+      QMessageBox::information(this, "Playlist Name", "Another playlist already uses this name.\nPlease choose a different name.");
+      goto try_again;
+    }
+
     auto pl = make_unique<RegularPlaylist>(name, QUuid::createUuid().toString());
     pPlaylist = pl.get();
 
-    AppState::GetSingleton()->AddPlaylist(std::move(pl));
+    AppState::GetSingleton()->AddPlaylist(std::move(pl), true);
   }
 
   for (const auto& guid : allSongs)
@@ -435,24 +452,46 @@ void Form1::onAddSelectionToPlaylist()
 
 void Form1::onCreateEmptyPlaylist()
 {
+try_again:
+
   bool ok = false;
   QString name = QInputDialog::getText(this, "Playlist Title", "Name:", QLineEdit::Normal, QString(), &ok);
 
-  if (!ok || name.isEmpty())
+  if (!ok)
     return;
 
-  AppState::GetSingleton()->AddPlaylist(make_unique<RegularPlaylist>(name, QUuid::createUuid().toString()));
+  if (name.isEmpty())
+    goto try_again;
+
+  if (AppState::GetSingleton()->FindPlaylist(name) != nullptr)
+  {
+    QMessageBox::information(this, "Playlist Name", "Another playlist already uses this name.\nPlease choose a different name.");
+    goto try_again;
+  }
+
+  AppState::GetSingleton()->AddPlaylist(make_unique<RegularPlaylist>(name, QUuid::createUuid().toString()), true);
 }
 
 void Form1::onCreateSmartPlaylist()
 {
+try_again:
+
   bool ok = false;
   QString name = QInputDialog::getText(this, "Playlist Title", "Name:", QLineEdit::Normal, QString(), &ok);
 
-  if (!ok || name.isEmpty())
+  if (!ok)
     return;
 
-  AppState::GetSingleton()->AddPlaylist(make_unique<SmartPlaylist>(name, QUuid::createUuid().toString()));
+  if (name.isEmpty())
+    goto try_again;
+
+  if (AppState::GetSingleton()->FindPlaylist(name) != nullptr)
+  {
+    QMessageBox::information(this, "Playlist Name", "Another playlist already uses this name.\nPlease choose a different name.");
+    goto try_again;
+  }
+
+  AppState::GetSingleton()->AddPlaylist(make_unique<SmartPlaylist>(name, QUuid::createUuid().toString()), true);
 }
 
 void Form1::onOpenSongInExplorer()
@@ -488,8 +527,13 @@ void Form1::onSelectedPlaylistChanged(const QItemSelection& selected, const QIte
   if (selected.isEmpty())
     return;
 
-  QModelIndex idx = indices[0];
-  ChangeSelectedPlaylist(AppState::GetSingleton()->GetAllPlaylists()[idx.row()].get());
+  const QModelIndex idx = indices[0];
+
+  const auto& allLists = AppState::GetSingleton()->GetAllPlaylists();
+
+  const int newIndex = Clamp(idx.row(), 0, (int)allLists.size() - 1);
+
+  ChangeSelectedPlaylist(allLists[newIndex].get());
 }
 
 void Form1::ChangeSelectedPlaylist(Playlist* pSelected)
@@ -703,7 +747,6 @@ void Form1::on_ShowSongButton_clicked()
   TracksView->scrollTo(idx);
   TracksView->selectionModel()->select(idx, QItemSelectionModel::SelectionFlag::ClearAndSelect | QItemSelectionModel::SelectionFlag::Rows);
   TracksView->setCurrentIndex(idx);
-
 }
 
 void Form1::onRemoveTracks()

@@ -84,6 +84,9 @@ public:
 
   void SortPlaylistData(std::vector<SortPlaylistEntry>& infos, PlaylistColumn column, bool bDescending);
 
+  /// \brief Opens the playlist editor (GUI), in case it supports editing.
+  virtual void ShowEditor() {}
+
 signals:
   void ActiveSongChanged(int index);
   void TitleChanged(const QString& newName);

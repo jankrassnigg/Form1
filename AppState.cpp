@@ -254,8 +254,10 @@ const vector<unique_ptr<Playlist>>& AppState::GetAllPlaylists() const
   return m_AllPlaylists;
 }
 
-void AppState::AddPlaylist(unique_ptr<Playlist>&& playlist)
+void AppState::AddPlaylist(unique_ptr<Playlist>&& playlist, bool bShowEditor)
 {
+  Playlist* playlistPtr = playlist.get();
+
   m_AllPlaylists.push_back(std::move(playlist));
   sort(m_AllPlaylists.begin(), m_AllPlaylists.end(), [](const unique_ptr<Playlist>& lhs, const unique_ptr<Playlist>& rhs) -> bool
   {
@@ -273,6 +275,11 @@ void AppState::AddPlaylist(unique_ptr<Playlist>&& playlist)
   }
 
   emit PlaylistsChanged();
+
+  if (bShowEditor)
+  {
+    playlistPtr->ShowEditor();
+  }
 }
 
 void AppState::DeletePlaylist(Playlist* playlist)
@@ -297,14 +304,37 @@ void AppState::DeletePlaylist(Playlist* playlist)
     }
   }
 
+  for (int i = 0; i < m_AllPlaylists.size(); ++i)
+  {
+    m_AllPlaylists[i]->SetPlaylistIndex(i);
+  }
+
   emit PlaylistsChanged();
 }
 
-void AppState::RenamePlaylist(Playlist* playlist, const QString& newName)
+bool AppState::RenamePlaylist(Playlist* playlist, const QString& newName)
 {
+  Playlist* existingPlaylist = FindPlaylist(newName);
+
+  if (existingPlaylist != nullptr && existingPlaylist != playlist)
+    return false;
+
   playlist->SetTitle(newName);
 
   emit PlaylistsChanged();
+
+  return true;
+}
+
+Playlist* AppState::FindPlaylist(const QString& name) const
+{
+  for (auto& pl : m_AllPlaylists)
+  {
+    if (pl->GetTitle().compare(name, Qt::CaseInsensitive) == 0)
+      return pl.get();
+  }
+
+  return nullptr;
 }
 
 void AppState::SetActivePlaylist(Playlist* playlist)
@@ -636,14 +666,14 @@ void AppState::LoadPlaylist(const QString& sPath)
     {
       unique_ptr<RegularPlaylist> newPlaylist = make_unique<RegularPlaylist>(sTitle, sGuid);
       pPlaylist = newPlaylist.get();
-      AddPlaylist(std::move(newPlaylist));
+      AddPlaylist(std::move(newPlaylist), false);
     }
 
     if (sFactory == "SmartPlaylist")
     {
       unique_ptr<SmartPlaylist> newPlaylist = make_unique<SmartPlaylist>(sTitle, sGuid);
       pPlaylist = newPlaylist.get();
-      AddPlaylist(std::move(newPlaylist));
+      AddPlaylist(std::move(newPlaylist), false);
     }
   }
 
