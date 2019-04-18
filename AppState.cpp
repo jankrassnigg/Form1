@@ -1,6 +1,6 @@
+#include "AppState.h"
 #include "AllSongsPlaylist.h"
 #include "AppConfig.h"
-#include "AppState.h"
 #include "MusicSourceFolder.h"
 #include "RegularPlaylist.h"
 #include "SmartPlaylist.h"
@@ -259,8 +259,7 @@ void AppState::AddPlaylist(unique_ptr<Playlist>&& playlist, bool bShowEditor)
   Playlist* playlistPtr = playlist.get();
 
   m_AllPlaylists.push_back(std::move(playlist));
-  sort(m_AllPlaylists.begin(), m_AllPlaylists.end(), [](const unique_ptr<Playlist>& lhs, const unique_ptr<Playlist>& rhs) -> bool
-  {
+  sort(m_AllPlaylists.begin(), m_AllPlaylists.end(), [](const unique_ptr<Playlist>& lhs, const unique_ptr<Playlist>& rhs) -> bool {
     if (lhs->GetCategory() == rhs->GetCategory())
     {
       return lhs->GetTitle().compare(rhs->GetTitle(), Qt::CaseInsensitive) < 0;
@@ -482,6 +481,12 @@ void AppState::onMediaPositionChanged()
 
 void AppState::onProfileDirectoryChanged()
 {
+  // do not delete the files in the previous location
+  for (int i = 0; i < m_AllPlaylists.size(); ++i)
+  {
+    m_AllPlaylists[i]->ClearFilesToDeleteOnSave();
+  }
+
   SaveAllPlaylists(true);
 }
 
@@ -531,7 +536,6 @@ QString AppState::SuggestPlaylistName(const std::vector<QString>& songGuids) con
 
     result.append(commonAlbum);
   }
-
 
   return result;
 }
@@ -604,7 +608,6 @@ void AppState::StartPlaylist(Playlist* playlist)
     m_pActivePlaylist->Reshuffle();
     NextSong();
   }
-
 }
 
 void AppState::LoadAllPlaylists()

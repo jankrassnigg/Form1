@@ -67,6 +67,7 @@ public:
 
   void AddFileToDeleteOnSave(const QString& file);
   void DeletePlaylistFiles();
+  void ClearFilesToDeleteOnSave();
 
   void SetLoop(bool loop);
   bool GetLoop() const { return m_bLoop; }

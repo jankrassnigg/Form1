@@ -151,6 +151,11 @@ void Playlist::DeletePlaylistFiles()
     QFile::remove(s);
   }
 
+  ClearFilesToDeleteOnSave();
+}
+
+void Playlist::ClearFilesToDeleteOnSave()
+{
   m_FilesToDeleteOnSave.clear();
 }
 
