@@ -189,5 +189,11 @@ private:
     }
   }
 
+  void InvalidateThis(size_t index)
+  {
+    auto& mod = m_Modifications[index];
+    mod.m_ModTimestamp = QDateTime();
+  }
+
   std::deque<T> m_Modifications;
 };

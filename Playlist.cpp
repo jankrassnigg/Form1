@@ -204,9 +204,7 @@ QVariant Playlist::commonData(const QModelIndex& index, int role, const QString&
   if (role == Qt::BackgroundColorRole)
   {
     SongInfo song;
-    LookupSongByIndex(index.row(), song);
-
-    if (song.m_sSongGuid.isEmpty())
+    if (!LookupSongByIndex(index.row(), song))
     {
       return QColor::fromRgb(255, 130, 130);
     }
@@ -215,9 +213,7 @@ QVariant Playlist::commonData(const QModelIndex& index, int role, const QString&
   if (role == Qt::DisplayRole)
   {
     SongInfo song;
-    LookupSongByIndex(index.row(), song);
-
-    if (song.m_sSongGuid.isEmpty())
+    if (!LookupSongByIndex(index.row(), song))
     {
       if (index.column() == 1)
         return "<Invalid Song>";

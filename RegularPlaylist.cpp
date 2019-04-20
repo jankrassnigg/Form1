@@ -1,10 +1,10 @@
+#include "RegularPlaylist.h"
 #include "AppState.h"
 #include "MusicLibrary.h"
-#include "RegularPlaylist.h"
 #include "Song.h"
 
 RegularPlaylist::RegularPlaylist(const QString& sTitle, const QString& guid)
-  : Playlist(sTitle, guid)
+    : Playlist(sTitle, guid)
 {
 }
 
@@ -144,10 +144,10 @@ void RegularPlaylist::Load(QDataStream& stream)
   endResetModel();
 }
 
-void RegularPlaylist::LookupSongByIndex(int index, SongInfo& song) const
+bool RegularPlaylist::LookupSongByIndex(int index, SongInfo& song) const
 {
   QString guid = m_Songs[index];
-  MusicLibrary::GetSingleton()->FindSong(guid, song);
+  return MusicLibrary::GetSingleton()->FindSong(guid, song);
 }
 
 QModelIndex RegularPlaylist::index(int row, int column, const QModelIndex& parent /*= QModelIndex()*/) const
@@ -190,7 +190,10 @@ void RegularPlaylist::sort(int column, Qt::SortOrder order /*= Qt::AscendingOrde
   for (size_t i = 0; i < numSongs; ++i)
   {
     infos[i].m_iOldIndex = i;
-    MusicLibrary::GetSingleton()->FindSong(m_Songs[i], infos[i].m_Info);
+    if (!MusicLibrary::GetSingleton()->FindSong(m_Songs[i], infos[i].m_Info))
+    {
+      infos[i].m_Info.m_sSongGuid = m_Songs[i];
+    }
   }
 
   SortPlaylistData(infos, (PlaylistColumn)column, order == Qt::DescendingOrder);
@@ -258,28 +261,42 @@ void RegularPlaylistModification::Coalesce(ModificationRecorder<RegularPlaylistM
 {
   switch (m_Type)
   {
+  case Type::None:
+  {
+    recorder.InvalidateThis(passThroughIndex);
+    break;
+  }
+
   case Type::AddSong:
   case Type::RemoveSong:
+  {
+    if (m_sIdentifier.isEmpty())
     {
-      recorder.InvalidatePrevious(passThroughIndex, [this](const RegularPlaylistModification& mod) -> bool {
-        // remove all previous adds/removes of the same song
-        if (mod.m_sIdentifier == this->m_sIdentifier)
-        {
-          return mod.m_Type == Type::AddSong || mod.m_Type == Type::RemoveSong;
-        }
-
-        return false;
-      });
+      recorder.InvalidateThis(passThroughIndex);
+      break;
     }
+
+    recorder.InvalidatePrevious(passThroughIndex, [this](const RegularPlaylistModification& mod) -> bool {
+      // remove all previous adds/removes of the same song
+      if (mod.m_sIdentifier == this->m_sIdentifier)
+      {
+        return mod.m_Type == Type::AddSong || mod.m_Type == Type::RemoveSong;
+      }
+
+      return false;
+    });
+
     break;
+  }
 
   case Type::RenamePlaylist:
-    {
-      recorder.InvalidatePrevious(passThroughIndex, [](const RegularPlaylistModification& mod) -> bool {
-        // remove all previous renames
-        return mod.m_Type == Type::RenamePlaylist;
-      });
-    }
+  {
+    recorder.InvalidatePrevious(passThroughIndex, [](const RegularPlaylistModification& mod) -> bool {
+      // remove all previous renames
+      return mod.m_Type == Type::RenamePlaylist;
+    });
+
     break;
+  }
   }
 }

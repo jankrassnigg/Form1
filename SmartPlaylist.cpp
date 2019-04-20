@@ -149,10 +149,10 @@ void SmartPlaylist::Load(QDataStream& stream)
   endResetModel();
 }
 
-void SmartPlaylist::LookupSongByIndex(int index, SongInfo& song) const
+bool SmartPlaylist::LookupSongByIndex(int index, SongInfo& song) const
 {
   QString guid = m_Songs[index];
-  MusicLibrary::GetSingleton()->FindSong(guid, song);
+  return MusicLibrary::GetSingleton()->FindSong(guid, song);
 }
 
 void SmartPlaylist::ShowEditor()

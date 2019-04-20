@@ -60,7 +60,7 @@ public:
   virtual void Save(QDataStream& stream) override;
   virtual void Load(QDataStream& stream) override;
 
-  virtual void LookupSongByIndex(int index, SongInfo& song) const override;
+  virtual bool LookupSongByIndex(int index, SongInfo& song) const override;
 
 private:
   friend RegularPlaylistModification;

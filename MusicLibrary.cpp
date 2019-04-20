@@ -310,16 +310,21 @@ static int RetrieveSong(void* result, int numColumns, char** values, char** colu
   return 0;
 }
 
-void MusicLibrary::FindSong(const QString& songGuid, SongInfo& song) const
+bool MusicLibrary::FindSong(const QString& songGuid, SongInfo& song) const
 {
   QString sql = QString("SELECT *" //id, title, artist, album, disc, track, year, length, rating, volume, start, end, lastplayed, dateadded, playcount"
                         ", strftime('%Y-%m-%d %H:%M', lastplayed, 'unixepoch', 'localtime') AS playedstring"
                         ", strftime('%Y-%m-%d %H:%M', dateadded, 'unixepoch', 'localtime') AS addedstring"
                         " FROM music WHERE id = '%1'")
                     .arg(songGuid);
-  song.m_sSongGuid = QString();
 
+  song.m_sSongGuid = QString();
   SqlExec(sql, RetrieveSong, &song);
+
+  const bool bFound = !song.m_sSongGuid.isEmpty();
+  song.m_sSongGuid = songGuid;
+
+  return bFound;
 }
 
 std::deque<SongInfo> MusicLibrary::GetAllSongs() const
@@ -387,9 +392,9 @@ void MusicLibrary::CountSongPlayed(const QString& sGuid)
 
   // read back current value
   SongInfo song;
-  FindSong(sGuid, song);
 
   // record last play date
+  if (FindSong(sGuid, song))
   {
     LibraryModification mod;
     mod.m_sSongGuid = sGuid;

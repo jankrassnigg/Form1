@@ -98,10 +98,10 @@ void AllSongsPlaylist::Load(QDataStream& stream)
   throw std::logic_error("The method or operation is not implemented.");
 }
 
-void AllSongsPlaylist::LookupSongByIndex(int index, SongInfo& song) const
+bool AllSongsPlaylist::LookupSongByIndex(int index, SongInfo& song) const
 {
   QString guid = m_AllSongs[index];
-  MusicLibrary::GetSingleton()->FindSong(guid, song);
+  return MusicLibrary::GetSingleton()->FindSong(guid, song);
 }
 
 QModelIndex AllSongsPlaylist::index(int row, int column, const QModelIndex& parent /*= QModelIndex()*/) const

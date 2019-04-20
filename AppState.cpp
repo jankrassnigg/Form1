@@ -182,9 +182,7 @@ void AppState::PrevSong()
 
       if (!m_pActivePlaylist->TryActivateSong(sSongGuid))
       {
-        MusicLibrary::GetSingleton()->FindSong(sSongGuid, m_ActiveSong);
-
-        if (!m_ActiveSong.m_sSongGuid.isEmpty())
+        if (MusicLibrary::GetSingleton()->FindSong(sSongGuid, m_ActiveSong))
         {
           m_ActiveSong.m_sSongGuid = sSongGuid;
           m_SongHistory.push_back(sSongGuid);
@@ -374,11 +372,10 @@ void AppState::onActiveSongChanged(int index)
   if (index >= 0)
   {
     QString guid = m_pActivePlaylist->GetSongGuid(index);
-    MusicLibrary::GetSingleton()->FindSong(guid, m_ActiveSong);
-
+    
     bool foundLocation = false;
 
-    if (!m_ActiveSong.m_sSongGuid.isEmpty())
+    if (MusicLibrary::GetSingleton()->FindSong(guid, m_ActiveSong))
     {
       m_ActiveSong.m_sSongGuid = guid;
       m_iSongVolumeAdjust = m_ActiveSong.m_iVolume;
@@ -502,9 +499,8 @@ QString AppState::SuggestPlaylistName(const std::vector<QString>& songGuids) con
   for (size_t i = 0; i < songGuids.size(); ++i)
   {
     SongInfo info;
-    MusicLibrary::GetSingleton()->FindSong(songGuids[i], info);
-
-    if (info.m_sSongGuid.isEmpty())
+    
+    if (!MusicLibrary::GetSingleton()->FindSong(songGuids[i], info))
       continue;
 
     if (i == 0)

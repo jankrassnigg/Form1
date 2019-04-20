@@ -60,7 +60,9 @@ public:
   void AddSupportedFileExtension(const char* szExtension);
   bool IsSupportedFileExtension(const char* szExtension) const;
 
-  void FindSong(const QString& songGuid, SongInfo& song) const;
+  /// \brief Retrieves the information for the given song by song GUID.
+  /// Returns false, if the GUID is for an unknown song. In that case \a song will remain empty (including the GUID).
+  bool FindSong(const QString& songGuid, SongInfo& song) const;
 
   std::deque<SongInfo> GetAllSongs() const;
   std::deque<SongInfo> LookupSongs(const QString& where, const QString& orderBy = "artist, album, disc, track") const;
