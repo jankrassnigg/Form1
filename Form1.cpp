@@ -6,6 +6,8 @@
 #include "SettingsDlg.h"
 #include "SmartPlaylist.h"
 #include "SongInfoDlg.h"
+
+#include <QClipboard>
 #include <QDir>
 #include <QInputDialog>
 #include <QItemSelectionModel>
@@ -13,11 +15,13 @@
 #include <QLocalServer>
 #include <QMenu>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QProcess>
 #include <QProxyStyle>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QUrl>
 #include <QUuid>
 #include <set>
 #include <windows.h>
@@ -96,6 +100,14 @@ Form1::Form1()
   connect(TracksView, &QWidget::customContextMenuRequested, this, &Form1::onPlaylistContextMenu);
   connect(TracksView, &TrackListView::DeleteItems, this, &Form1::onRemoveTracks);
   connect(TracksView, &TrackListView::StartCurrentItem, this, &Form1::onStartCurrentTrack);
+
+  {
+    m_pCopyAction.reset(new QAction("Copy Songs", this));
+    m_pCopyAction->setShortcut(QKeySequence("Ctrl+C"));
+    connect(m_pCopyAction.get(), &QAction::triggered, this, &Form1::onCopyActionTriggered);
+
+    TracksView->addAction(m_pCopyAction.get());
+  }
 
   TracksView->setHeaderHidden(false);
 
@@ -333,6 +345,7 @@ void Form1::onPlaylistContextMenu(const QPoint& pos)
     connect(menu.addAction("Open in Explorer"), &QAction::triggered, this, &Form1::onOpenSongInExplorer);
   }
 
+  menu.addAction(m_pCopyAction.get());
   connect(menu.addAction("Song Info..."), &QAction::triggered, this, &Form1::onShowSongInfo);
 
   menu.exec(TracksView->mapToGlobal(pos));
@@ -865,11 +878,44 @@ void Form1::CreateSystemTrayIcon()
     m_pSystemTray->show();
 
     m_pSystemTray->setContextMenu(new QMenu());
-    m_pTrayPlayPauseAction = m_pSystemTray->contextMenu()->addAction("Play");
-    connect(m_pTrayPlayPauseAction, &QAction::triggered, this, [this]() { on_PlayPauseButton_clicked(); });
+    m_pTrayPlayPauseAction.reset(m_pSystemTray->contextMenu()->addAction("Play"));
+    connect(m_pTrayPlayPauseAction.get(), &QAction::triggered, this, [this]() { on_PlayPauseButton_clicked(); });
     connect(m_pSystemTray->contextMenu()->addAction("Next Song"), &QAction::triggered, this, [this]() { on_NextTrackButton_clicked(); });
     connect(m_pSystemTray->contextMenu()->addAction("Quit"), &QAction::triggered, this, [this]() { close(); });
 
     connect(m_pSystemTray, &QSystemTrayIcon::activated, this, &Form1::onTrayIconActivated);
   }
+}
+
+void Form1::onCopyActionTriggered(bool)
+{
+  QModelIndexList indexes = TracksView->selectionModel()->selectedRows(0);
+
+  std::deque<QString> locations;
+  MusicLibrary* ml = MusicLibrary::GetSingleton();
+
+  QList<QUrl> fileUrls;
+
+  for (QModelIndex idx : indexes)
+  {
+    QString songGuid = TracksView->model()->data(idx, Qt::UserRole + 1).toString();
+
+    ml->GetSongLocations(songGuid, locations);
+
+    for (const QString& path : locations)
+    {
+      if (QFile::exists(path))
+      {
+        fileUrls.append(QUrl::fromLocalFile(path));
+        break;
+      }
+    }
+  }
+
+  if (fileUrls.isEmpty())
+    return;
+
+  QMimeData* mimeData = new QMimeData();
+  mimeData->setUrls(fileUrls);
+  QGuiApplication::clipboard()->setMimeData(mimeData);
 }

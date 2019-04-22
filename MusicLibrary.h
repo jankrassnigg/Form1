@@ -73,6 +73,8 @@ public:
   void RemoveSongFromLibrary(const QString& sGuid);
   void AddSongLocation(const QString& sGuid, const QString& sLocation, const QString& sLastModified);
   void RemoveSongLocation(const QString& sLocation);
+
+  /// \brief Returns all the locations on disk that are known for the given song.
   void GetSongLocations(const QString& sGuid, std::deque<QString>& out_Locations) const;
   bool HasSongLocations(const QString& sGuid) const;
   bool IsLocationModified(const QString& sLocation, const QString& sLastModified) const;

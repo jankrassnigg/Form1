@@ -62,6 +62,7 @@ private slots:
   void onRateSongs();
   void onBusyWorkActive(bool active);
   void onSaveUserStateTimer();
+  void onCopyActionTriggered(bool);
 
 private:
   void ChangeSelectedPlaylist(Playlist* playlist);
@@ -76,7 +77,8 @@ private:
   Playlist* m_pSelectedPlaylist = nullptr;
   QSystemTrayIcon* m_pSystemTray = nullptr;
   QScopedPointer<QLocalServer> m_LocalInstanceServer;
-  QAction* m_pTrayPlayPauseAction = nullptr;
+  QScopedPointer<QAction> m_pTrayPlayPauseAction;
+  QScopedPointer<QAction> m_pCopyAction;
 
 #ifdef Q_OS_WIN32
   QScopedPointer<QWinTaskbarButton> m_TaskbarButton;
