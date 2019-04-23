@@ -1,6 +1,8 @@
+#include "MusicLibrary/MusicSourceFolder.h"
 #include "Config/AppState.h"
 #include "MusicLibrary/MusicLibrary.h"
-#include "MusicLibrary/MusicSourceFolder.h"
+#include "MusicLibrary/SortLibraryDlg.h"
+
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDirIterator>
@@ -117,9 +119,9 @@ static void AdjustRangeID3v2(QFile& file, qint64& rangeStart)
     return;
 
   qint32 size = ((qint32)data[0] << (7 * 3)) |
-    ((qint32)data[1] << (7 * 2)) |
-    ((qint32)data[2] << 7) |
-    ((qint32)data[3]);
+                ((qint32)data[1] << (7 * 2)) |
+                ((qint32)data[2] << 7) |
+                ((qint32)data[3]);
 
   rangeStart = 3 + 2 + 1 + 4 + size;
 }
@@ -191,14 +193,6 @@ QString MusicSourceFolder::ComputeFileGuid(const QString& sFilepath) const
 
 #include <QMessageBox>
 
-struct CopyInfo
-{
-  QString m_sGuid;
-  QString m_sSource;
-  QString m_sTargetFolder;
-  QString m_sTargetFile;
-};
-
 QString MakeValidString(const QString& r, bool bFile)
 {
   QString s = r.trimmed();
@@ -244,19 +238,20 @@ QString MakeValidString(const QString& r, bool bFile)
   return s.trimmed();
 }
 
-void MusicSourceFolder::Sort(const QString& prefix)
+void MusicSourceFolder::GatherFilesToSort(const QString& folderPath, std::deque<CopyInfo>& cis)
 {
-  if (!m_sFolder.startsWith(prefix))
-    return;
-
   std::deque<QString> guids;
+  std::set<QString> songsAlreadyFound;
   std::deque<QString> locations;
-  MusicLibrary::GetSingleton()->FindSongsInLocation(m_sFolder, guids);
-
-  std::deque<CopyInfo> cis;
+  MusicLibrary::GetSingleton()->FindSongsInLocation(folderPath, guids);
 
   for (const QString& guid : guids)
   {
+    if (songsAlreadyFound.find(guid) != songsAlreadyFound.end())
+      continue;
+
+    songsAlreadyFound.insert(guid);
+
     SongInfo info;
     MusicLibrary::GetSingleton()->FindSong(guid, info);
     MusicLibrary::GetSingleton()->GetSongLocations(guid, locations);
@@ -266,12 +261,15 @@ void MusicSourceFolder::Sort(const QString& prefix)
 
     for (const QString& location : locations)
     {
+      if (!location.startsWith(folderPath, Qt::CaseInsensitive))
+        continue;
+
       const QFileInfo fi(location);
 
       if (!fi.exists())
         continue;
 
-      const bool bHasAlbum = !info.m_sAlbum.isEmpty(); 
+      const bool bHasAlbum = !info.m_sAlbum.isEmpty();
 
       const QString artist = info.m_sArtist.isEmpty() ? "Unknown Artist" : MakeValidString(info.m_sArtist, false);
       const QString album = bHasAlbum ? MakeValidString(info.m_sAlbum, false) : "Unknown Album";
@@ -281,16 +279,16 @@ void MusicSourceFolder::Sort(const QString& prefix)
       const QString ext = fi.suffix();
 
       QString newPath = QString("%1/%2/%3")
-        .arg(m_sFolder)
-        .arg(artist)
-        .arg(album);
+                            .arg(folderPath)
+                            .arg(artist)
+                            .arg(album);
 
       QString newFile = QString("%1/%2%3%4.%5")
-        .arg(newPath)
-        .arg(disk)
-        .arg(track)
-        .arg(title)
-        .arg(ext);
+                            .arg(newPath)
+                            .arg(disk)
+                            .arg(track)
+                            .arg(title)
+                            .arg(ext);
 
       if (newFile.compare(location, Qt::CaseInsensitive) == 0)
         break;
@@ -301,16 +299,28 @@ void MusicSourceFolder::Sort(const QString& prefix)
       ci.m_sTargetFolder = newPath;
       ci.m_sTargetFile = newFile;
       cis.push_back(ci);
-
-      break;
     }
   }
+}
+
+void MusicSourceFolder::Sort(const QString& prefix)
+{
+  if (m_sFolder.compare(prefix) != 0)
+    return;
+
+  std::deque<CopyInfo> cis;
+  GatherFilesToSort(m_sFolder, cis);
 
   if (cis.empty())
   {
     QMessageBox::information(nullptr, "Form1", "All files are already sorted.", QMessageBox::StandardButton::Ok, QMessageBox::StandardButton::Ok);
     return;
   }
+
+  SortLibraryDlg sortDlg(cis, nullptr);
+  sortDlg.exec();
+
+  return;
 
   QString q = QString("Do you want to move and rename %1 files into this file structure:\n\n'Artist/Album/[Disc#-][Track# ]Title'").arg(cis.size());
 
@@ -323,7 +333,6 @@ void MusicSourceFolder::Sort(const QString& prefix)
 
     if (!QFileInfo(ci.m_sSource).exists())
       continue;
-
 
     if (QMessageBox::question(nullptr, prefix, s, QMessageBox::StandardButton::Ok | QMessageBox::StandardButton::Cancel, QMessageBox::StandardButton::Ok) == QMessageBox::StandardButton::Cancel)
       break;
