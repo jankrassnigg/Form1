@@ -6,6 +6,7 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDirIterator>
+#include <QProgressDialog>
 #include <QtConcurrent/QtConcurrentRun>
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
@@ -245,8 +246,18 @@ void MusicSourceFolder::GatherFilesToSort(const QString& folderPath, std::deque<
   std::deque<QString> locations;
   MusicLibrary::GetSingleton()->FindSongsInLocation(folderPath, guids);
 
+  QProgressDialog progress("Checking Files", "Cancel", 0, (int)guids.size(), nullptr);
+  progress.setMinimumDuration(0);
+  progress.setWindowModality(Qt::WindowModal);
+
+  int prog = 0;
   for (const QString& guid : guids)
   {
+    progress.setValue(++prog);
+
+    if (progress.wasCanceled())
+      return;
+
     if (songsAlreadyFound.find(guid) != songsAlreadyFound.end())
       continue;
 
@@ -267,7 +278,10 @@ void MusicSourceFolder::GatherFilesToSort(const QString& folderPath, std::deque<
       const QFileInfo fi(location);
 
       if (!fi.exists())
+      {
+        MusicLibrary::GetSingleton()->RemoveSongLocation(location);
         continue;
+      }
 
       const bool bHasAlbum = !info.m_sAlbum.isEmpty();
 
@@ -291,7 +305,7 @@ void MusicSourceFolder::GatherFilesToSort(const QString& folderPath, std::deque<
                             .arg(ext);
 
       if (newFile.compare(location, Qt::CaseInsensitive) == 0)
-        break;
+        continue;
 
       CopyInfo ci;
       ci.m_sGuid = guid;
@@ -303,6 +317,106 @@ void MusicSourceFolder::GatherFilesToSort(const QString& folderPath, std::deque<
   }
 }
 
+bool MusicSourceFolder::ExecuteFileSort(const CopyInfo& ci, QString& outError)
+{
+  if (!QFileInfo(ci.m_sSource).exists())
+  {
+    outError = "Source file does not exist.";
+    return false;
+  }
+
+  if (!QDir().mkpath(ci.m_sTargetFolder))
+  {
+    outError = "Could not make target path.";
+    return false;
+  }
+
+  if (!QFileInfo(ci.m_sTargetFile).exists())
+  {
+    if (!QFile::copy(ci.m_sSource, ci.m_sTargetFile))
+    {
+      outError = "Could not copy source to target.";
+      return false;
+    }
+
+    const QFileInfo targetInfo(ci.m_sTargetFile);
+    const QString sModDate = targetInfo.lastModified().toString("yyyy-MM-dd-hh-mm-ss");
+
+    MusicLibrary::GetSingleton()->AddSongLocation(ci.m_sGuid, ci.m_sTargetFile, sModDate);
+
+    if (!QFile::remove(ci.m_sSource))
+    {
+      outError = "Could not delete source file.";
+      return false;
+    }
+
+    MusicLibrary::GetSingleton()->RemoveSongLocation(ci.m_sSource);
+  }
+  else
+  {
+    QByteArray srcData, dstData;
+    {
+      QFile srcFile(ci.m_sSource);
+      QFile dstFile(ci.m_sTargetFile);
+
+      if (!srcFile.open(QIODevice::ReadOnly))
+      {
+        outError = "Could not open source file.";
+        return false;
+      }
+
+      if (!dstFile.open(QIODevice::ReadOnly))
+      {
+        outError = "Could not open target file.";
+        return false;
+      }
+
+      srcData = srcFile.readAll();
+      dstData = dstFile.readAll();
+    }
+
+    if (srcData == dstData)
+    {
+      if (!QFile::remove(ci.m_sSource))
+      {
+        outError = "Could not delete source file.";
+        return false;
+      }
+
+      MusicLibrary::GetSingleton()->RemoveSongLocation(ci.m_sSource);
+    }
+    else
+    {
+      outError = "Target file already exists with different content.";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+void MusicSourceFolder::DeleteEmptyFolders(const QString& folder)
+{
+  QDirIterator it(folder, QDirIterator::IteratorFlag::Subdirectories);
+
+  while (it.hasNext())
+  {
+    if (it.fileInfo().isDir() && it.fileName() != "." && it.fileName() != "..")
+    {
+      QString path = it.filePath();
+      QDir dir(path);
+
+      QFileInfoList infoList = dir.entryInfoList(QDir::AllEntries | QDir::System | QDir::NoDotAndDotDot | QDir::Hidden);
+      if (infoList.isEmpty())
+      {
+        QDir().rmdir(path);
+      }
+    }
+
+    it.next();
+  }
+}
+
 void MusicSourceFolder::Sort(const QString& prefix)
 {
   if (m_sFolder.compare(prefix) != 0)
@@ -311,81 +425,16 @@ void MusicSourceFolder::Sort(const QString& prefix)
   std::deque<CopyInfo> cis;
   GatherFilesToSort(m_sFolder, cis);
 
+  if (!cis.empty())
+  {
+    SortLibraryDlg sortDlg(cis, &MusicSourceFolder::ExecuteFileSort, nullptr);
+    sortDlg.exec();
+  }
+
+  DeleteEmptyFolders(m_sFolder);
+
   if (cis.empty())
   {
     QMessageBox::information(nullptr, "Form1", "All files are already sorted.", QMessageBox::StandardButton::Ok, QMessageBox::StandardButton::Ok);
-    return;
   }
-
-  SortLibraryDlg sortDlg(cis, nullptr);
-  sortDlg.exec();
-
-  return;
-
-  QString q = QString("Do you want to move and rename %1 files into this file structure:\n\n'Artist/Album/[Disc#-][Track# ]Title'").arg(cis.size());
-
-  if (QMessageBox::question(nullptr, "Form1", q, QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No, QMessageBox::StandardButton::No) != QMessageBox::StandardButton::Yes)
-    return;
-
-  for (const CopyInfo& ci : cis)
-  {
-    QString s = QString("%1\n%2").arg(ci.m_sSource, ci.m_sTargetFile);
-
-    if (!QFileInfo(ci.m_sSource).exists())
-      continue;
-
-    if (QMessageBox::question(nullptr, prefix, s, QMessageBox::StandardButton::Ok | QMessageBox::StandardButton::Cancel, QMessageBox::StandardButton::Ok) == QMessageBox::StandardButton::Cancel)
-      break;
-
-    if (!QDir().mkpath(ci.m_sTargetFolder))
-      continue;
-
-    if (!QFileInfo(ci.m_sTargetFile).exists())
-    {
-      if (!QFile::copy(ci.m_sSource, ci.m_sTargetFile))
-        continue;
-
-      const QFileInfo targetInfo(ci.m_sTargetFile);
-      const QString sModDate = targetInfo.lastModified().toString("yyyy-MM-dd-hh-mm-ss");
-
-      MusicLibrary::GetSingleton()->AddSongLocation(ci.m_sGuid, ci.m_sTargetFile, sModDate);
-      MusicLibrary::GetSingleton()->RemoveSongLocation(ci.m_sSource);
-
-      if (!QFile::remove(ci.m_sSource))
-      {
-        printf("Failed to delete: '%s'\n", ci.m_sSource.toUtf8().data());
-      }
-    }
-    else
-    {
-      QByteArray srcData, dstData;
-      {
-        QFile srcFile(ci.m_sSource);
-        QFile dstFile(ci.m_sTargetFile);
-
-        if (!srcFile.open(QIODevice::ReadOnly))
-          continue;
-
-        if (!dstFile.open(QIODevice::ReadOnly))
-          continue;
-
-        srcData = srcFile.readAll();
-        dstData = dstFile.readAll();
-      }
-
-      if (srcData == dstData)
-      {
-        if (!QFile::remove(ci.m_sSource))
-        {
-          printf("Failed to delete: '%s'\n", ci.m_sSource.toUtf8().data());
-        }
-      }
-      else
-      {
-        printf("Target file already exists with different content: '%s' -> '%s'\n", ci.m_sSource.toUtf8().data(), ci.m_sTargetFile.toUtf8().data());
-      }
-    }
-  }
-
-  QMessageBox::information(nullptr, "Form1", "All done.", QMessageBox::StandardButton::Ok, QMessageBox::StandardButton::Ok);
 }

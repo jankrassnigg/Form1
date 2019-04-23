@@ -9,7 +9,6 @@ class QFileInfo;
 
 struct CopyInfo
 {
-  bool m_bMove = true;
   QString m_sGuid;
   QString m_sSource;
   QString m_sTargetFolder;
@@ -30,6 +29,8 @@ public:
 
 private:
   static void GatherFilesToSort(const QString& prefix, std::deque<CopyInfo>& cis);
+  static bool ExecuteFileSort(const CopyInfo& ci, QString& outError);
+  static void DeleteEmptyFolders(const QString& folder);
 
   void ParseFolder();
   QString ComputeFileGuid(const QString& sFilepath) const;

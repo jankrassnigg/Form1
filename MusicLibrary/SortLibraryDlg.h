@@ -10,17 +10,33 @@
 #include <deque>
 #include <set>
 
+typedef bool (*ExecuteFileSortCB)(const CopyInfo&, QString&);
+
 class SortLibraryDlg : public QDialog, Ui_SortLibraryDlg
 {
   Q_OBJECT
 
 public:
-  SortLibraryDlg(std::deque<CopyInfo>& cis, QWidget* parent);
+  SortLibraryDlg(const std::deque<CopyInfo>& cis, ExecuteFileSortCB callback, QWidget* parent);
 
 private slots:
+  void on_SortButton_clicked();
+
+  void ExecuteFileSort();
+
+  void RetrieveCheckedState();
 
 private:
   void FillTable();
 
-  std::deque<CopyInfo>& m_CopyInfo;
+  ExecuteFileSortCB m_SortCallback;
+
+  struct CopyInfo2
+  {
+    CopyInfo m_Info;
+    bool m_bMove = false;
+    QString m_sErrorMsg;
+  };
+
+  std::deque<CopyInfo2> m_CopyInfo;
 };

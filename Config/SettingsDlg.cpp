@@ -79,8 +79,7 @@ void SettingsDlg::FillMusicFoldersList()
   MusicDirsList->horizontalHeader()->hide();
   MusicDirsList->verticalHeader()->hide();
   MusicDirsList->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeMode::Stretch);
-  MusicDirsList->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeMode::Fixed);
-  MusicDirsList->horizontalHeader()->resizeSection(1, 50);
+  MusicDirsList->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeMode::ResizeToContents);
 
   for (int row = 0; row < (int)sources.size(); ++row)
   {
