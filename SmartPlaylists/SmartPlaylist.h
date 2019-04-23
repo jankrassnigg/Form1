@@ -66,6 +66,8 @@ public:
 
   virtual void ShowEditor() override;
 
+  virtual bool ContainsSong(const QString& songGuid) override;
+
 private slots:
   void onShowEditDlg();
 

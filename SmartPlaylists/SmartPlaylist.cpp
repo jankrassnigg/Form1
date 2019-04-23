@@ -172,6 +172,11 @@ void SmartPlaylist::ShowEditor()
   }
 }
 
+bool SmartPlaylist::ContainsSong(const QString& songGuid)
+{
+  return false;
+}
+
 void SmartPlaylist::onShowEditDlg()
 {
   ShowEditor();

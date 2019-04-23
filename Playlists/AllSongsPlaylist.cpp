@@ -104,6 +104,11 @@ bool AllSongsPlaylist::LookupSongByIndex(int index, SongInfo& song) const
   return MusicLibrary::GetSingleton()->FindSong(guid, song);
 }
 
+bool AllSongsPlaylist::ContainsSong(const QString& songGuid)
+{
+  return true;
+}
+
 QModelIndex AllSongsPlaylist::index(int row, int column, const QModelIndex& parent /*= QModelIndex()*/) const
 {
   if (parent.isValid())

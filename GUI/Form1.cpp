@@ -302,26 +302,42 @@ void Form1::onPlaylistContextMenu(const QPoint& pos)
   if (selection.isEmpty())
     return;
 
-  QMenu menu;
-  QMenu* plMenu = menu.addMenu("Add to Playlist");
+  const bool bSingleSelection = selection.size() == 1;
+  QString sSingleGuid;
 
+  if (bSingleSelection)
   {
-    QAction* pAdd = plMenu->addAction("New Playlist...");
-    pAdd->setData(QVariant::fromValue(static_cast<void*>(nullptr)));
-    connect(pAdd, &QAction::triggered, this, &Form1::onAddSelectionToPlaylist);
-
-    plMenu->addSeparator();
+    sSingleGuid = m_pSelectedPlaylist->GetSongGuid(selection[0].row());
   }
 
-  const auto& playlists = AppState::GetSingleton()->GetAllPlaylists();
-  for (const auto& pl : playlists)
-  {
-    if (!pl->CanModifySongList())
-      continue;
+  QMenu menu;
 
-    QAction* pAdd = plMenu->addAction(pl->GetTitle());
-    pAdd->setData(QVariant::fromValue(static_cast<void*>(pl.get())));
-    connect(pAdd, &QAction::triggered, this, &Form1::onAddSelectionToPlaylist);
+  {
+    QMenu* plMenu = menu.addMenu("Add to Playlist");
+
+    {
+      QAction* pAdd = plMenu->addAction("New Playlist...");
+      pAdd->setData(QVariant::fromValue(static_cast<void*>(nullptr)));
+      connect(pAdd, &QAction::triggered, this, &Form1::onAddSelectionToPlaylist);
+
+      plMenu->addSeparator();
+    }
+
+    const auto& playlists = AppState::GetSingleton()->GetAllPlaylists();
+    for (const auto& pl : playlists)
+    {
+      if (!pl->CanModifySongList())
+        continue;
+
+      QAction* pAdd = plMenu->addAction(pl->GetTitle());
+      pAdd->setData(QVariant::fromValue(static_cast<void*>(pl.get())));
+      connect(pAdd, &QAction::triggered, this, &Form1::onAddSelectionToPlaylist);
+
+      if (bSingleSelection && pl->ContainsSong(sSingleGuid))
+      {
+        pAdd->setEnabled(false);
+      }
+    }
   }
 
   if (m_pSelectedPlaylist->CanModifySongList())
@@ -340,7 +356,7 @@ void Form1::onPlaylistContextMenu(const QPoint& pos)
     connect(ratingMenu->addAction("No Rating"), &QAction::triggered, this, &Form1::onRateSongs);
   }
 
-  if (selection.size() == 1)
+  if (bSingleSelection)
   {
     connect(menu.addAction("Open in Explorer"), &QAction::triggered, this, &Form1::onOpenSongInExplorer);
   }

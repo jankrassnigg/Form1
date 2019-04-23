@@ -150,6 +150,11 @@ bool RegularPlaylist::LookupSongByIndex(int index, SongInfo& song) const
   return MusicLibrary::GetSingleton()->FindSong(guid, song);
 }
 
+bool RegularPlaylist::ContainsSong(const QString& songGuid)
+{
+  return std::find(m_Songs.begin(), m_Songs.end(), songGuid) != m_Songs.end();
+}
+
 QModelIndex RegularPlaylist::index(int row, int column, const QModelIndex& parent /*= QModelIndex()*/) const
 {
   if (parent.isValid())

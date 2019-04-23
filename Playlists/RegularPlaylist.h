@@ -62,6 +62,8 @@ public:
 
   virtual bool LookupSongByIndex(int index, SongInfo& song) const override;
 
+  virtual bool ContainsSong(const QString& songGuid) override;
+
 private:
   friend RegularPlaylistModification;
 

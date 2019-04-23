@@ -88,6 +88,9 @@ public:
   /// \brief Opens the playlist editor (GUI), in case it supports editing.
   virtual void ShowEditor() {}
 
+  /// \brief Checks whether the given song is part of the playlist
+  virtual bool ContainsSong(const QString& songGuid) = 0;
+
 signals:
   void ActiveSongChanged(int index);
   void TitleChanged(const QString& newName);
