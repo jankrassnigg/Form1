@@ -17,7 +17,7 @@ class SortLibraryDlg : public QDialog, Ui_SortLibraryDlg
   Q_OBJECT
 
 public:
-  SortLibraryDlg(const std::deque<CopyInfo>& cis, ExecuteFileSortCB callback, QWidget* parent);
+  SortLibraryDlg(const QString& folder, const std::deque<CopyInfo>& cis, ExecuteFileSortCB callback, QWidget* parent);
 
 private slots:
   void on_SortButton_clicked();
@@ -38,5 +38,6 @@ private:
     QString m_sErrorMsg;
   };
 
+  QString m_sFolder;
   std::deque<CopyInfo2> m_CopyInfo;
 };

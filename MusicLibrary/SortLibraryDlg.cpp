@@ -6,9 +6,10 @@
 #include <QLabel>
 #include <QProgressDialog>
 #include <QPushButton>
+#include <QTableWidget>
 
-SortLibraryDlg::SortLibraryDlg(const std::deque<CopyInfo>& cis, ExecuteFileSortCB callback, QWidget* parent)
-    : QDialog(parent), m_SortCallback(callback)
+SortLibraryDlg::SortLibraryDlg(const QString& folder, const std::deque<CopyInfo>& cis, ExecuteFileSortCB callback, QWidget* parent)
+    : QDialog(parent), m_SortCallback(callback), m_sFolder(folder)
 {
   for (const CopyInfo& ci : cis)
   {
@@ -107,13 +108,26 @@ void SortLibraryDlg::FillTable()
 
   ModificationsTable->setRowCount((int)m_CopyInfo.size());
 
+  const int chopStart = m_sFolder.length() + 1;
+
   for (int i = 0; i < (int)m_CopyInfo.size(); ++i)
   {
     const auto& ci = m_CopyInfo[i];
+    QTableWidgetItem* pSourceItem = new QTableWidgetItem(ci.m_Info.m_sSource.mid(chopStart));
+    QTableWidgetItem* pTargetItem = new QTableWidgetItem(ci.m_Info.m_sTargetFile.mid(chopStart));
+    QTableWidgetItem* pMessageItem = new QTableWidgetItem(ci.m_sErrorMsg);
+    pSourceItem->setToolTip(ci.m_Info.m_sSource);
+    pTargetItem->setToolTip(ci.m_Info.m_sTargetFile);
 
-    ModificationsTable->setCellWidget(i, 0, new QLabel(ci.m_Info.m_sSource));
-    ModificationsTable->setCellWidget(i, 1, new QLabel(ci.m_Info.m_sTargetFile));
-    ModificationsTable->setCellWidget(i, 2, new QLabel(ci.m_sErrorMsg));
+    if (!ci.m_sErrorMsg.isEmpty())
+    {
+      pSourceItem->setIcon(QIcon(":/icons/icons/exclamation.png"));
+      pMessageItem->setToolTip(ci.m_sErrorMsg);
+    }
+
+    ModificationsTable->setItem(i, 0, pSourceItem);
+    ModificationsTable->setItem(i, 1, pTargetItem);
+    ModificationsTable->setItem(i, 2, pMessageItem);
   }
 
   ModificationsTable->blockSignals(false);

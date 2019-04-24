@@ -85,7 +85,7 @@ void SettingsDlg::FillMusicFoldersList()
   {
     const QString& source = sources[row];
 
-    QPushButton* pButton = new QPushButton("Sort", MusicDirsList);
+    QPushButton* pButton = new QPushButton("Sort...", MusicDirsList);
     connect(pButton, &QPushButton::clicked, this, &SettingsDlg::onSortDirClicked);
 
     pButton->setProperty("dir", source);

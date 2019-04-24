@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="icons">
+    <file>../icons/exclamation.png</file>
     <file>../icons/star_grey.png</file>
     <file>../icons/star.png</file>
     <file>../icons/remove_statement.png</file>

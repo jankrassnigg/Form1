@@ -22,6 +22,15 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>The table below lists which source files may be moved to a new target location.
+Select the files that you want to move and click the 'Sort' button.
+If an error prevents a relocation, it appears in the last column afterwards.</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QTableWidget" name="ModificationsTable">
      <property name="verticalScrollBarPolicy">
       <enum>Qt::ScrollBarAlwaysOn</enum>

@@ -427,7 +427,7 @@ void MusicSourceFolder::Sort(const QString& prefix)
 
   if (!cis.empty())
   {
-    SortLibraryDlg sortDlg(cis, &MusicSourceFolder::ExecuteFileSort, nullptr);
+    SortLibraryDlg sortDlg(m_sFolder, cis, &MusicSourceFolder::ExecuteFileSort, nullptr);
     sortDlg.exec();
   }
 
