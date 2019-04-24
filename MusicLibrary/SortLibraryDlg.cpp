@@ -3,7 +3,10 @@
 
 #include <QCheckBox>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QLabel>
+#include <QMenu>
+#include <QProcess>
 #include <QProgressDialog>
 #include <QPushButton>
 #include <QTableWidget>
@@ -26,6 +29,9 @@ SortLibraryDlg::SortLibraryDlg(const QString& folder, const std::deque<CopyInfo>
   ModificationsTable->resizeColumnToContents(2);
 
   ModificationsTable->selectAll();
+
+  ModificationsTable->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(ModificationsTable, &QTableWidget::customContextMenuRequested, this, &SortLibraryDlg::onContextMenu);
 }
 
 void SortLibraryDlg::on_SortButton_clicked()
@@ -67,7 +73,10 @@ void SortLibraryDlg::ExecuteFileSort()
     progress.setValue(++numChecked);
 
     if (progress.wasCanceled())
-      break;
+    {
+      remainingFiles.push_back(ci);
+      continue;
+    }
 
     if (!m_SortCallback(ci.m_Info, ci.m_sErrorMsg))
     {
@@ -91,6 +100,37 @@ void SortLibraryDlg::RetrieveCheckedState()
   {
     m_CopyInfo[idx.row()].m_bMove = true;
   }
+}
+
+void SortLibraryDlg::onContextMenu(const QPoint& pt)
+{
+  int rowIdx = ModificationsTable->rowAt(pt.y());
+
+  if (rowIdx < 0)
+    return;
+
+  QMenu m(this);
+  QAction* pSrc = m.addAction("Open 'Source' in Explorer");
+  QAction* pTgt = m.addAction("Open 'Target' in Explorer");
+
+  pSrc->setData(ModificationsTable->item(rowIdx, 0)->toolTip());
+  pTgt->setData(ModificationsTable->item(rowIdx, 1)->toolTip());
+
+  connect(pSrc, &QAction::triggered, this, &SortLibraryDlg::onRevealInExplorer);
+  connect(pTgt, &QAction::triggered, this, &SortLibraryDlg::onRevealInExplorer);
+
+  m.exec(ModificationsTable->mapToGlobal(pt), pSrc);
+}
+
+void SortLibraryDlg::onRevealInExplorer(bool)
+{
+  QAction* pAction = qobject_cast<QAction*>(sender());
+  QString path = pAction->data().toString();
+
+  QStringList args;
+  args << "/select,";
+  args << QDir::toNativeSeparators(path);
+  QProcess::startDetached("explorer", args);
 }
 
 void SortLibraryDlg::FillTable()

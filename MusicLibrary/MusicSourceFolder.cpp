@@ -6,6 +6,7 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDirIterator>
+#include <QMessageBox>
 #include <QProgressDialog>
 #include <QtConcurrent/QtConcurrentRun>
 #include <taglib/fileref.h>
@@ -192,7 +193,40 @@ QString MusicSourceFolder::ComputeFileGuid(const QString& sFilepath) const
   return hash.result().toHex();
 }
 
-#include <QMessageBox>
+void RemoveBrackets(QString& sentence)
+{
+  if (sentence.endsWith(")"))
+  {
+    int idx = sentence.lastIndexOf("(");
+
+    if (idx >= 0)
+    {
+      sentence = sentence.mid(0, idx);
+    }
+  }
+
+  if (sentence.endsWith("]"))
+  {
+    int idx = sentence.lastIndexOf("[");
+
+    if (idx >= 0)
+    {
+      sentence = sentence.mid(0, idx);
+    }
+  }
+
+  sentence = sentence.trimmed();
+}
+
+void RemoveWord(QString& sentence)
+{
+  while (!sentence.isEmpty() && !sentence.endsWith(' '))
+  {
+    sentence.chop(1);
+  }
+
+  sentence = sentence.trimmed();
+}
 
 QString MakeValidString(const QString& r, bool bFile)
 {
@@ -211,19 +245,16 @@ QString MakeValidString(const QString& r, bool bFile)
   if (s.endsWith(".ogg", Qt::CaseInsensitive))
     s.chop(4);
 
-  s.replace('?', '_');
-  s.replace(':', '_');
-  s.replace('/', '_');
-  s.replace('\\', '_');
+  s.replace('?', "");
+  s.replace(':', "");
+  s.replace('/', ' ');
+  s.replace('\\', ' ');
   s.replace('*', '_');
-  s.replace('<', '_');
-  s.replace('>', '_');
-  s.replace('|', '_');
+  s.replace('<', ' ');
+  s.replace('>', ' ');
+  s.replace('|', ' ');
 
-  //s.replace('\'', "");
-  //s.replace(',', "");
-  //s.replace(';', "");
-  s.replace('\"', "");
+  s.replace('\"', "'");
   s.replace('\n', "");
   s.replace('\t', "");
   s.replace('\r', "");
@@ -232,9 +263,31 @@ QString MakeValidString(const QString& r, bool bFile)
   {
     s.replace('.', "");
   }
+  else
+  {
+    // dots at the end of folder names are not allowed
+    while (s.endsWith("."))
+      s.chop(1);
+  }
 
-  if (s.length() > 31)
-    s.resize(31);
+  s = s.trimmed();
+
+  const int maxLength = 40;
+
+  if (s.length() > maxLength)
+  {
+    RemoveBrackets(s);
+  }
+
+  if (s.length() > maxLength)
+  {
+    RemoveBrackets(s);
+  }
+
+  while (s.length() > maxLength)
+  {
+    RemoveWord(s);
+  }
 
   return s.trimmed();
 }
@@ -333,9 +386,12 @@ bool MusicSourceFolder::ExecuteFileSort(const CopyInfo& ci, QString& outError)
 
   if (!QFileInfo(ci.m_sTargetFile).exists())
   {
-    if (!QFile::copy(ci.m_sSource, ci.m_sTargetFile))
+    QFile from(ci.m_sSource);
+    from.copy(ci.m_sTargetFile);
+
+    if (from.error() != QFile::NoError)
     {
-      outError = "Could not copy source to target.";
+      outError = QString("Could not copy source to target: %1").arg(from.errorString());
       return false;
     }
 

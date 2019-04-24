@@ -23,8 +23,9 @@ private slots:
   void on_SortButton_clicked();
 
   void ExecuteFileSort();
-
   void RetrieveCheckedState();
+  void onContextMenu(const QPoint& pt);
+  void onRevealInExplorer(bool);
 
 private:
   void FillTable();
