@@ -104,9 +104,9 @@ Form1::Form1()
   {
     m_pCopyAction.reset(new QAction("Copy Songs", this));
     m_pCopyAction->setShortcut(QKeySequence("Ctrl+C"));
-    connect(m_pCopyAction.get(), &QAction::triggered, this, &Form1::onCopyActionTriggered);
+    connect(m_pCopyAction.data(), &QAction::triggered, this, &Form1::onCopyActionTriggered);
 
-    TracksView->addAction(m_pCopyAction.get());
+    TracksView->addAction(m_pCopyAction.data());
   }
 
   TracksView->setHeaderHidden(false);
@@ -361,7 +361,7 @@ void Form1::onPlaylistContextMenu(const QPoint& pos)
     connect(menu.addAction("Open in Explorer"), &QAction::triggered, this, &Form1::onOpenSongInExplorer);
   }
 
-  menu.addAction(m_pCopyAction.get());
+  menu.addAction(m_pCopyAction.data());
   connect(menu.addAction("Song Info..."), &QAction::triggered, this, &Form1::onShowSongInfo);
 
   menu.exec(TracksView->mapToGlobal(pos));
@@ -609,6 +609,12 @@ void Form1::on_SettingsButton_clicked()
 
 void Form1::onRefreshPlaylist()
 {
+  m_iSearchDelayCounter--;
+
+  // wait until the user stopped typing properly
+  if (m_iSearchDelayCounter > 0)
+    return;
+
   QString searchText = SearchLine->text();
   MusicLibrary::GetSingleton()->SetSearchText(searchText);
 
@@ -734,7 +740,8 @@ void Form1::onSaveUserStateTimer()
 void Form1::on_SearchLine_textChanged(const QString& text)
 {
   // delay retrieving the text
-  QTimer::singleShot(200, this, &Form1::onRefreshPlaylist);
+  m_iSearchDelayCounter++;
+  QTimer::singleShot(600, this, &Form1::onRefreshPlaylist);
 }
 
 void Form1::on_ClearSearchButton_clicked()
@@ -895,7 +902,7 @@ void Form1::CreateSystemTrayIcon()
 
     m_pSystemTray->setContextMenu(new QMenu());
     m_pTrayPlayPauseAction.reset(m_pSystemTray->contextMenu()->addAction("Play"));
-    connect(m_pTrayPlayPauseAction.get(), &QAction::triggered, this, [this]() { on_PlayPauseButton_clicked(); });
+    connect(m_pTrayPlayPauseAction.data(), &QAction::triggered, this, [this]() { on_PlayPauseButton_clicked(); });
     connect(m_pSystemTray->contextMenu()->addAction("Next Song"), &QAction::triggered, this, [this]() { on_NextTrackButton_clicked(); });
     connect(m_pSystemTray->contextMenu()->addAction("Quit"), &QAction::triggered, this, [this]() { close(); });
 

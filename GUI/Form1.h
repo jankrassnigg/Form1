@@ -73,6 +73,7 @@ private:
   virtual void changeEvent(QEvent* event) override;
   virtual void showEvent(QShowEvent *e) override;
 
+  int m_iSearchDelayCounter = 0;
   QScopedPointer<Sidebar> m_pSidebar;
   Playlist* m_pSelectedPlaylist = nullptr;
   QSystemTrayIcon* m_pSystemTray = nullptr;

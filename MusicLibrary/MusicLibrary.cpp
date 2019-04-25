@@ -343,12 +343,24 @@ std::deque<SongInfo> MusicLibrary::GetAllSongs() const
       char tmp[128];
       sqlite3_snprintf(127, tmp, "%q", m_sSearchText.toUtf8().data());
 
+      QStringList pieces = m_sSearchText.split(' ', QString::SkipEmptyParts);
+
+      QString condition;
+
+      for (const QString& piece : pieces)
+      {
+        if (!condition.isEmpty())
+          condition.append(" AND ");
+
+        condition.append(QString("(title LIKE '%%%1%%' OR artist LIKE '%%%1%%' OR album LIKE '%%%1%%')").arg(piece));
+      }
+
       sql = QString("SELECT *"
                     ", strftime('%Y-%m-%d %H:%M', lastplayed, 'unixepoch', 'localtime') AS playedstring"
                     ", strftime('%Y-%m-%d %H:%M', dateadded, 'unixepoch', 'localtime') AS addedstring"
-                    " FROM music WHERE title LIKE '%%%1%%' OR artist LIKE '%%%1%%' OR album LIKE '%%%1%%'"
+                    " FROM music WHERE %1"
                     " ORDER BY artist, album, disc, track")
-                .arg(tmp);
+                .arg(condition);
     }
 
     SqlExec(sql, RetrieveSongArray, &allSongs);
