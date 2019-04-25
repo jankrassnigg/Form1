@@ -77,6 +77,8 @@ public:
   /// \brief Returns all the locations on disk that are known for the given song.
   void GetSongLocations(const QString& sGuid, std::deque<QString>& out_Locations) const;
   bool HasSongLocations(const QString& sGuid) const;
+
+  /// \brief Checks whether the database knows the file 'sLocation' with the given last modification date. If yes, it returns false (not changed).
   bool IsLocationModified(const QString& sLocation, const QString& sLastModified) const;
   void UpdateSongDuration(const QString& sGuid, int duration);
   void UpdateSongTitle(const QString& sGuid, const QString& value);

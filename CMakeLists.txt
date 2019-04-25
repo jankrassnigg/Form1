@@ -127,6 +127,8 @@ set (OTHER_SOURCES
   "Misc/ModificationRecorder.h"
   "Misc/Common.h"
   "Misc/resource.h"
+  "Misc/FileSystemWatcher.h"
+  "Misc/FileSystemWatcher.cpp"
   "App.rc"
   # "SoundDevices/SoundDeviceQt.cpp"
   "SoundDevices/SoundDeviceBass.cpp"
