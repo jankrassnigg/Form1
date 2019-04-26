@@ -26,7 +26,9 @@ void SmartPlaylist::Refresh()
 {
   QString sql = m_Query.GenerateSQL();
 
-  std::deque<SongInfo> songs = MusicLibrary::GetSingleton()->LookupSongs(sql, m_Query.GenerateOrderBySQL());
+  std::deque<SongInfo> songs = std::move(MusicLibrary::GetSingleton()->LookupSongs(sql, m_Query.GenerateOrderBySQL()));
+
+  beginResetModel();
 
   m_Songs.clear();
   for (const SongInfo& si : songs)
@@ -47,7 +49,6 @@ void SmartPlaylist::Refresh()
     m_Songs.resize(m_Query.m_iSongLimit);
   }
 
-  beginResetModel();
   endResetModel();
 }
 

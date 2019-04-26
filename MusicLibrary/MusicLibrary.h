@@ -64,7 +64,12 @@ public:
   /// Returns false, if the GUID is for an unknown song. In that case \a song will remain empty (including the GUID).
   bool FindSong(const QString& songGuid, SongInfo& song) const;
 
+  /// \brief Returns the SongInfo objects for all songs in the entire library. Uses the search string to filter the results.
   std::deque<SongInfo> GetAllSongs() const;
+
+  /// \brief Returns the GUIDs for all songs in the entire library. Uses the search string to filter the results.
+  std::deque<QString> GetAllSongGuids() const;
+
   std::deque<SongInfo> LookupSongs(const QString& where, const QString& orderBy = "artist, album, disc, track") const;
 
   void CountSongPlayed(const QString& sGuid);
@@ -127,7 +132,10 @@ private:
   QFuture<void> m_WorkerTask;
   volatile bool m_bWorkersActive = false;
 
-  std::mutex m_RecorderMutex;
+  mutable std::mutex m_RecorderMutex;
   ModificationRecorder<LibraryModification, MusicLibrary*> m_Recorder;
   std::vector<QString> m_LibFilesToDeleteOnSave;
+
+  mutable std::mutex m_CacheMutex;
+  mutable std::deque<SongInfo> m_songInfoCache;
 };

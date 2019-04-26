@@ -10,15 +10,9 @@ AllSongsPlaylist::AllSongsPlaylist()
 
 void AllSongsPlaylist::Refresh()
 {
-  std::deque<SongInfo> songs = MusicLibrary::GetSingleton()->GetAllSongs();
-
   beginResetModel();
 
-  m_AllSongs.clear();
-  for (const SongInfo& si : songs)
-  {
-    m_AllSongs.push_back(si.m_sSongGuid);
-  }
+  m_AllSongs = std::move(MusicLibrary::GetSingleton()->GetAllSongGuids());
 
   endResetModel();
 }

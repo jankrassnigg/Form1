@@ -312,6 +312,17 @@ static int RetrieveSong(void* result, int numColumns, char** values, char** colu
 
 bool MusicLibrary::FindSong(const QString& songGuid, SongInfo& song) const
 {
+  std::lock_guard<std::mutex> lock(m_CacheMutex);
+
+  for (size_t i = 0; i < m_songInfoCache.size(); ++i)
+  {
+    if (m_songInfoCache[i].m_sSongGuid == songGuid)
+    {
+      song = m_songInfoCache[i];
+      return true;
+    }
+  }
+
   QString sql = QString("SELECT *" //id, title, artist, album, disc, track, year, length, rating, volume, start, end, lastplayed, dateadded, playcount"
                         ", strftime('%Y-%m-%d %H:%M', lastplayed, 'unixepoch', 'localtime') AS playedstring"
                         ", strftime('%Y-%m-%d %H:%M', dateadded, 'unixepoch', 'localtime') AS addedstring"
@@ -323,6 +334,14 @@ bool MusicLibrary::FindSong(const QString& songGuid, SongInfo& song) const
 
   const bool bFound = !song.m_sSongGuid.isEmpty();
   song.m_sSongGuid = songGuid;
+
+  if (bFound)
+  {
+    if (m_songInfoCache.size() > 31)
+      m_songInfoCache.pop_front();
+
+    m_songInfoCache.push_back(song);
+  }
 
   return bFound;
 }
@@ -341,7 +360,6 @@ std::deque<SongInfo> MusicLibrary::GetAllSongs() const
     if (!m_sSearchText.isEmpty())
     {
       char tmp[128];
-      sqlite3_snprintf(127, tmp, "%q", m_sSearchText.toUtf8().data());
 
       QStringList pieces = m_sSearchText.split(' ', QString::SkipEmptyParts);
 
@@ -352,7 +370,8 @@ std::deque<SongInfo> MusicLibrary::GetAllSongs() const
         if (!condition.isEmpty())
           condition.append(" AND ");
 
-        condition.append(QString("(title LIKE '%%%1%%' OR artist LIKE '%%%1%%' OR album LIKE '%%%1%%')").arg(piece));
+        sqlite3_snprintf(127, tmp, "%q", piece.toUtf8().data());
+        condition.append(QString("(title LIKE '%%%1%%' OR artist LIKE '%%%1%%' OR album LIKE '%%%1%%')").arg(tmp));
       }
 
       sql = QString("SELECT *"
@@ -364,6 +383,42 @@ std::deque<SongInfo> MusicLibrary::GetAllSongs() const
     }
 
     SqlExec(sql, RetrieveSongArray, &allSongs);
+  }
+
+  return std::move(allSongs);
+}
+
+std::deque<QString> MusicLibrary::GetAllSongGuids() const
+{
+  std::deque<QString> allSongs;
+
+  if (m_pSongDatabase)
+  {
+    QString sql = "SELECT id FROM music";
+
+    if (!m_sSearchText.isEmpty())
+    {
+      char tmp[128];
+
+      QStringList pieces = m_sSearchText.split(' ', QString::SkipEmptyParts);
+
+      QString condition;
+
+      for (const QString& piece : pieces)
+      {
+        if (!condition.isEmpty())
+          condition.append(" AND ");
+
+        sqlite3_snprintf(127, tmp, "%q", piece.toUtf8().data());
+        condition.append(QString("(title LIKE '%%%1%%' OR artist LIKE '%%%1%%' OR album LIKE '%%%1%%')").arg(tmp));
+      }
+
+      sql = QString("SELECT id FROM music WHERE %1"
+                    " ORDER BY artist, album, disc, track")
+                .arg(condition);
+    }
+
+    SqlExec(sql, RetrieveSongGuidArray, &allSongs);
   }
 
   return std::move(allSongs);
@@ -618,6 +673,8 @@ void MusicLibrary::UpdateSongDuration(const QString& sGuid, int duration)
                     .arg(sGuid);
 
   SqlExec(sql, nullptr, nullptr);
+
+  m_songInfoCache.clear();
 }
 
 void MusicLibrary::UpdateSongTitle(const QString& sGuid, const QString& value)
@@ -630,6 +687,9 @@ void MusicLibrary::UpdateSongTitle(const QString& sGuid, const QString& value)
                     .arg(sGuid);
 
   SqlExec(sql, nullptr, nullptr);
+
+  std::lock_guard<std::mutex> lock(m_CacheMutex);
+  m_songInfoCache.clear();
 }
 
 void MusicLibrary::UpdateSongArtist(const QString& sGuid, const QString& value)
@@ -642,6 +702,9 @@ void MusicLibrary::UpdateSongArtist(const QString& sGuid, const QString& value)
                     .arg(sGuid);
 
   SqlExec(sql, nullptr, nullptr);
+
+  std::lock_guard<std::mutex> lock(m_CacheMutex);
+  m_songInfoCache.clear();
 }
 
 void MusicLibrary::UpdateSongAlbum(const QString& sGuid, const QString& value)
@@ -654,6 +717,9 @@ void MusicLibrary::UpdateSongAlbum(const QString& sGuid, const QString& value)
                     .arg(sGuid);
 
   SqlExec(sql, nullptr, nullptr);
+
+  std::lock_guard<std::mutex> lock(m_CacheMutex);
+  m_songInfoCache.clear();
 }
 
 void MusicLibrary::UpdateSongTrackNumber(const QString& sGuid, int value)
@@ -663,6 +729,9 @@ void MusicLibrary::UpdateSongTrackNumber(const QString& sGuid, int value)
                     .arg(sGuid);
 
   SqlExec(sql, nullptr, nullptr);
+
+  std::lock_guard<std::mutex> lock(m_CacheMutex);
+  m_songInfoCache.clear();
 }
 
 void MusicLibrary::UpdateSongDiscNumber(const QString& sGuid, int value, bool bRecord)
@@ -685,6 +754,9 @@ void MusicLibrary::UpdateSongDiscNumber(const QString& sGuid, int value, bool bR
                       .arg(sGuid);
 
     SqlExec(sql, nullptr, nullptr);
+
+    std::lock_guard<std::mutex> lock(m_CacheMutex);
+    m_songInfoCache.clear();
   }
 }
 
@@ -695,6 +767,9 @@ void MusicLibrary::UpdateSongYear(const QString& sGuid, int value)
                     .arg(sGuid);
 
   SqlExec(sql, nullptr, nullptr);
+
+  std::lock_guard<std::mutex> lock(m_CacheMutex);
+  m_songInfoCache.clear();
 }
 
 void MusicLibrary::UpdateSongRating(const QString& sGuid, int value, bool bRecord)
@@ -717,6 +792,9 @@ void MusicLibrary::UpdateSongRating(const QString& sGuid, int value, bool bRecor
                       .arg(sGuid);
 
     SqlExec(sql, nullptr, nullptr);
+
+    std::lock_guard<std::mutex> lock(m_CacheMutex);
+    m_songInfoCache.clear();
   }
 }
 
@@ -740,6 +818,9 @@ void MusicLibrary::UpdateSongVolume(const QString& sGuid, int value, bool bRecor
                       .arg(sGuid);
 
     SqlExec(sql, nullptr, nullptr);
+
+    std::lock_guard<std::mutex> lock(m_CacheMutex);
+    m_songInfoCache.clear();
   }
 }
 
@@ -763,6 +844,9 @@ void MusicLibrary::UpdateSongStartOffset(const QString& sGuid, int value, bool b
                       .arg(sGuid);
 
     SqlExec(sql, nullptr, nullptr);
+
+    std::lock_guard<std::mutex> lock(m_CacheMutex);
+    m_songInfoCache.clear();
   }
 }
 
@@ -786,6 +870,9 @@ void MusicLibrary::UpdateSongEndOffset(const QString& sGuid, int value, bool bRe
                       .arg(sGuid);
 
     SqlExec(sql, nullptr, nullptr);
+
+    std::lock_guard<std::mutex> lock(m_CacheMutex);
+    m_songInfoCache.clear();
   }
 }
 
@@ -796,6 +883,9 @@ void MusicLibrary::UpdateSongPlayDate(const QString& sGuid, int value)
                     .arg(sGuid);
 
   SqlExec(sql, nullptr, nullptr);
+
+  std::lock_guard<std::mutex> lock(m_CacheMutex);
+  m_songInfoCache.clear();
 }
 
 void MusicLibrary::FindSongsInLocation(const QString& sLocationPrefix, std::deque<QString>& out_Guids) const

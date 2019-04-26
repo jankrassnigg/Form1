@@ -28,7 +28,7 @@ public:
   virtual PlaylistCategory GetCategory() override;
   virtual void SetTitle(const QString& title) override;
 
-  virtual bool CanSort() { return false; }
+  virtual bool CanSort() { return true; }
   virtual bool CanBeRenamed() const { return false; }
   virtual bool CanBeDeleted() const override { return false; }
   virtual bool CanModifySongList() const override;
