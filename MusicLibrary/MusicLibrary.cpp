@@ -112,6 +112,9 @@ void MusicLibrary::LoadUserState()
 
   while (dirIt.hasNext())
   {
+    if (!m_bWorkersActive)
+      return;
+
     dirIt.next();
 
     const QFileInfo fileInfo = dirIt.fileInfo();
@@ -236,7 +239,7 @@ void MusicLibrary::SetSearchText(const QString& text)
 void MusicLibrary::AddSupportedFileExtension(const char* szExtension)
 {
   QString sExt = szExtension;
-  sExt.toLower();
+  sExt = sExt.toLower();
 
   auto it = std::find(m_MusicFileExtensions.begin(), m_MusicFileExtensions.end(), sExt);
 
@@ -249,7 +252,7 @@ void MusicLibrary::AddSupportedFileExtension(const char* szExtension)
 bool MusicLibrary::IsSupportedFileExtension(const char* szExtension) const
 {
   QString sExt = szExtension;
-  sExt.toLower();
+  sExt = sExt.toLower();
 
   auto it = std::find(m_MusicFileExtensions.begin(), m_MusicFileExtensions.end(), sExt);
 

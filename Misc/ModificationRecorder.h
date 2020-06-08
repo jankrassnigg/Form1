@@ -4,6 +4,7 @@
 #include <QDateTime>
 #include <QUuid>
 #include <deque>
+#include <set>
 
 struct Modification
 {
@@ -18,7 +19,7 @@ struct Modification
   QString m_sModGuid;
 };
 
-template<typename T, typename CONTEXT>
+template <typename T, typename CONTEXT>
 class ModificationRecorder
 {
 public:
@@ -81,6 +82,8 @@ public:
     int numMods = 0;
     stream >> numMods;
 
+    std::set<QString> knownGuids;
+
     for (int i = 0; i < numMods; ++i)
     {
       m_Modifications.push_back(T());
@@ -90,23 +93,21 @@ public:
       stream >> mod.m_ModTimestamp;
       mod.Load(stream);
 
-      // TODO: not very efficient
-      for (size_t j = 0; j < m_Modifications.size() - 1; ++j)
+      if (knownGuids.find(mod.m_sModGuid) != knownGuids.end())
       {
         // remove the new modification, if one with the same GUID already exists
-        if (m_Modifications[j].m_sModGuid == mod.m_sModGuid)
-        {
-          m_Modifications.pop_back();
-          break;
-        }
+        m_Modifications.pop_back();
+      }
+      else
+      {
+        knownGuids.insert(mod.m_sModGuid);
       }
     }
   }
 
   void ApplyAll(CONTEXT context)
   {
-    sort(m_Modifications.begin(), m_Modifications.end(), [](const T& lhs, const T& rhs) -> bool
-    {
+    sort(m_Modifications.begin(), m_Modifications.end(), [](const T& lhs, const T& rhs) -> bool {
       return lhs.m_ModTimestamp < rhs.m_ModTimestamp;
     });
 
@@ -121,8 +122,7 @@ public:
     if (m_Modifications.empty())
       return;
 
-    sort(m_Modifications.begin(), m_Modifications.end(), [](const T& lhs, const T& rhs) -> bool
-    {
+    sort(m_Modifications.begin(), m_Modifications.end(), [](const T& lhs, const T& rhs) -> bool {
       return lhs.m_ModTimestamp < rhs.m_ModTimestamp;
     });
 
@@ -136,8 +136,7 @@ public:
       mod.Coalesce(*this, i - 1);
     }
 
-    sort(m_Modifications.begin(), m_Modifications.end(), [](const T& lhs, const T& rhs) -> bool
-    {
+    sort(m_Modifications.begin(), m_Modifications.end(), [](const T& lhs, const T& rhs) -> bool {
       if (!lhs.m_ModTimestamp.isValid() && !rhs.m_ModTimestamp.isValid()) // equal
         return false;
       if (!lhs.m_ModTimestamp.isValid())
@@ -172,7 +171,7 @@ public:
 private:
   friend T;
 
-  template<typename InvalidateIf>
+  template <typename InvalidateIf>
   void InvalidatePrevious(size_t index, InvalidateIf ii)
   {
     for (size_t i = index; i > 0; --i)
