@@ -91,6 +91,9 @@ public:
   /// \brief Checks whether the given song is part of the playlist
   virtual bool ContainsSong(const QString& songGuid) = 0;
 
+  /// \brief Marks the playlist as modified
+  void SetModified() { m_bWasModified = true; }
+
 signals:
   void ActiveSongChanged(int index);
   void TitleChanged(const QString& newName);

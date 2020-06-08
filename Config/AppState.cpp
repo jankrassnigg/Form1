@@ -653,6 +653,9 @@ void AppState::LoadPlaylist(const QString& sPath)
     if (m_AllPlaylists[i]->GetGuid() == sGuid)
     {
       pPlaylist = m_AllPlaylists[i].get();
+
+      // if there are two or more files for this playlist, mark it as modified, to coalesce all files at shutdown
+      pPlaylist->SetModified();
       break;
     }
   }
