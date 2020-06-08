@@ -1,0 +1,25 @@
+<RCC>
+  <qresource prefix="icons">
+    <file>../icons/exclamation.png</file>
+    <file>../icons/star_grey.png</file>
+    <file>../icons/star.png</file>
+    <file>../icons/remove_statement.png</file>
+    <file>../icons/statement.png</file>
+    <file>../icons/add_group.png</file>
+    <file>../icons/add_statement.png</file>
+    <file>../icons/remove_group.png</file>
+    <file>../icons/playlist_all.png</file>
+    <file>../icons/playlist_regular.png</file>
+    <file>../icons/playlist_smart.png</file>
+    <file>../icons/jumpto.png</file>
+    <file>../icons/next.png</file>
+    <file>../icons/pause.png</file>
+    <file>../icons/play.png</file>
+    <file>../icons/prev.png</file>
+    <file>../icons/clear.png</file>
+    <file>../icons/settings.png</file>
+    <file>../icons/repeat.png</file>
+    <file>../Form1.png</file>
+    <file>../icons/shuffle.png</file>
+  </qresource>
+</RCC>
