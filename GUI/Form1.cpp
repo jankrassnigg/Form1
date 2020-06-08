@@ -574,8 +574,9 @@ void Form1::ChangeSelectedPlaylist(Playlist* pSelected)
 
   m_pSelectedPlaylist = pSelected;
   m_pSelectedPlaylist->Refresh();
-  TracksView->setModel(m_pSelectedPlaylist);
+  TracksView->sortByColumn(PlaylistColumn::Order, Qt::AscendingOrder);
   TracksView->setSortingEnabled(m_pSelectedPlaylist->CanSort());
+  TracksView->setModel(m_pSelectedPlaylist);
 
   connect(m_pSelectedPlaylist, &Playlist::LoopShuffleStateChanged, this, &Form1::onLoopShuffleStateChanged);
 

@@ -53,6 +53,9 @@ QVariant Playlist::headerData(int section, Qt::Orientation orientation, int role
 
     case PlaylistColumn::DateAdded:
       return "Date Added";
+
+    case PlaylistColumn::Order:
+      return "#";
     }
   }
 
@@ -244,6 +247,8 @@ QVariant Playlist::commonData(const QModelIndex& index, int role, const QString&
       return song.m_iPlayCount;
     case PlaylistColumn::DateAdded:
       return song.m_sDateAdded;
+    case PlaylistColumn::Order:
+      return index.row() + 1;
 
     default:
       return "";
@@ -357,6 +362,10 @@ void Playlist::SortPlaylistData(std::vector<SortPlaylistEntry>& infos, PlaylistC
 {
   switch (column)
   {
+  case PlaylistColumn::Order:
+    // never change the order
+    return;
+
   case PlaylistColumn::Rating:
     {
       std::stable_sort(infos.begin(), infos.end(), [](const SortPlaylistEntry& lhs, const SortPlaylistEntry& rhs)->bool

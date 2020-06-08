@@ -40,6 +40,7 @@ enum PlaylistColumn
   LastPlayed,
   PlayCount,
   DateAdded,
+  Order,
 
   ENUM_COUNT
 };

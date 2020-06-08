@@ -1,7 +1,7 @@
 #include "Playlists/RegularPlaylist.h"
 #include "Config/AppState.h"
-#include "MusicLibrary/MusicLibrary.h"
 #include "Misc/Song.h"
+#include "MusicLibrary/MusicLibrary.h"
 
 RegularPlaylist::RegularPlaylist(const QString& sTitle, const QString& guid)
     : Playlist(sTitle, guid)
@@ -128,6 +128,16 @@ bool RegularPlaylist::CanSerialize()
 
 void RegularPlaylist::Save(QDataStream& stream)
 {
+  // add all songs again, in the new order
+  for (const QString& songGuid : m_Songs)
+  {
+    RegularPlaylistModification mod;
+    mod.m_Type = RegularPlaylistModification::Type::AddSong;
+    mod.m_sIdentifier = songGuid;
+
+    m_Recorder.AddModification(mod, this);
+  }
+
   m_Recorder.CoalesceEntries();
   m_Recorder.Save(stream);
 }
@@ -187,6 +197,11 @@ QVariant RegularPlaylist::data(const QModelIndex& index, int role /*= Qt::Displa
 
 void RegularPlaylist::sort(int column, Qt::SortOrder order /*= Qt::AscendingOrder*/)
 {
+  if (column != 0)
+  {
+    m_bWasModified = true;
+  }
+
   const size_t numSongs = m_Songs.size();
 
   std::vector<SortPlaylistEntry> infos;
