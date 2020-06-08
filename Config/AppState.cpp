@@ -764,6 +764,12 @@ void AppState::LoadUserState()
         SetActivePlaylist(m_AllPlaylists[i].get());
         m_fJumpToNormalizedTrackPosition = trackPos;
         m_AllPlaylists[i]->SetActiveSong(lastSong);
+
+        if (trackPos > 0.5f)
+        {
+          m_bCountedSongAsPlayed = true; // prevent the song from being counted again
+        }
+
         PausePlayback();
         break;
       }

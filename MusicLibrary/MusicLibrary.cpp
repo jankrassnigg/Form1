@@ -210,6 +210,11 @@ void MusicLibrary::CleanupThread()
 
   if (m_bWorkersActive)
   {
+    UpdateSongPlayCount();
+  }
+
+  if (m_bWorkersActive)
+  {
     RestoreFromDatabase();
   }
 
@@ -1024,6 +1029,55 @@ void MusicLibrary::CleanUpSongs()
     for (const QString& song : toRemove)
     {
       RemoveSongFromLibrary(song);
+    }
+    SqlExec("END TRANSACTION", nullptr, nullptr);
+  }
+}
+
+void MusicLibrary::UpdateSongPlayCount()
+{
+  if (!m_pSongDatabase)
+    return;
+
+  ModificationRecorder<LibraryModification, MusicLibrary*> recorder;
+
+  // make a copy
+  {
+    std::lock_guard<std::mutex> lock(m_RecorderMutex);
+    recorder = m_Recorder;
+  }
+
+  std::map<QString, int> infos;
+  std::set<QString> entryCounted;
+
+  for (const auto& rec : recorder.GetAllModifications())
+  {
+    if (!m_bWorkersActive)
+      return;
+
+    if (rec.m_Type != LibraryModification::Type::AddPlayDate)
+      continue;
+
+    // at this point, entries are not coalesced, so we must filter out duplicate play date information
+    if (entryCounted.find(rec.m_sModGuid) != entryCounted.end())
+      continue;
+
+    entryCounted.insert(rec.m_sModGuid);
+
+    infos[rec.m_sSongGuid]++;
+  }
+
+  // update database
+  {
+    SqlExec("BEGIN IMMEDIATE TRANSACTION", nullptr, nullptr);
+    for (const auto itInfo : infos)
+    {
+      // no need to update lastplayed, that is already done during startup
+      QString sql = QString("UPDATE music SET playcount = %1 WHERE id = '%2'")
+                        .arg(itInfo.second)
+                        .arg(itInfo.first);
+
+      SqlExec(sql, nullptr, nullptr);
     }
     SqlExec("END TRANSACTION", nullptr, nullptr);
   }

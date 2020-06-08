@@ -124,6 +124,7 @@ private:
   void CleanupThread();
   void CleanUpLocations();
   void CleanUpSongs();
+  void UpdateSongPlayCount();
 
   QString m_sSearchText;
   std::vector<QString> m_MusicFileExtensions;

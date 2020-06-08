@@ -168,6 +168,8 @@ public:
     }
   }
 
+  const std::deque<T>& GetAllModifications() const { return m_Modifications; }
+
 private:
   friend T;
 
