@@ -84,6 +84,12 @@ public:
 
     std::set<QString> knownGuids;
 
+    // make sure existing modifications are known
+    for (const auto& mod : m_Modifications)
+    {
+      knownGuids.insert(mod.m_sModGuid);
+    }
+
     for (int i = 0; i < numMods; ++i)
     {
       m_Modifications.push_back(T());

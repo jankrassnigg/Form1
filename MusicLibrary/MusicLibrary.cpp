@@ -110,6 +110,7 @@ void MusicLibrary::LoadUserState()
 
   QDirIterator dirIt(sDir, QDirIterator::Subdirectories | QDirIterator::FollowSymlinks);
 
+  bool bMoreThanOneFile = false;
   while (dirIt.hasNext())
   {
     if (!m_bWorkersActive)
@@ -128,6 +129,13 @@ void MusicLibrary::LoadUserState()
       continue;
 
     LoadLibraryFile(sLibraryFile);
+
+    if (bMoreThanOneFile)
+    {
+      m_Recorder.m_bRecordedModifcations = true;
+    }
+
+    bMoreThanOneFile = true;
   }
 
   // using a transaction to update the DB in one go speeds this up by a huge factor
