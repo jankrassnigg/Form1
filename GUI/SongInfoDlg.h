@@ -25,8 +25,12 @@ private slots:
   void on_EditStartOffset_toggled(bool checked);
   void on_EditEndOffset_toggled(bool checked);
   void on_EditRating_toggled(bool checked);
+  void on_StartOffsetNow_clicked();
+  void on_EndOffsetNow_clicked();
 
 private:
+  void ConvertTime(int curTimeMS, int& out_Minutes, int& out_Seconds, int& out_Milliseconds);
+
   std::set<QString>& m_SelectedSongs;
   SongInfo m_SharedInfos;
   std::set<QString> m_AllLocations;

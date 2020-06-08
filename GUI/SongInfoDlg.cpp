@@ -1,12 +1,12 @@
-#include "Config/AppConfig.h"
 #include "GUI/SongInfoDlg.h"
+#include "Config/AppConfig.h"
 #include "MusicLibrary/MusicLibrary.h"
+#include "SoundDevices/SoundDevice.h"
 #include <QDialogButtonBox>
 #include <QPushButton>
 
 SongInfoDlg::SongInfoDlg(std::set<QString>& selectedSongs, QWidget* parent)
-  : QDialog(parent)
-  , m_SelectedSongs(selectedSongs)
+    : QDialog(parent), m_SelectedSongs(selectedSongs)
 {
   setupUi(this);
 
@@ -74,9 +74,24 @@ SongInfoDlg::SongInfoDlg(std::set<QString>& selectedSongs, QWidget* parent)
   YearLineEdit->setText(QString("%1").arg(m_SharedInfos.m_iYear));
   LengthLineEdit->setText(ToTime(m_SharedInfos.m_iLengthInMS));
   VolumeSlider->setValue(m_SharedInfos.m_iVolume);
-  StartOffsetLineEdit->setText(QString("%1").arg(m_SharedInfos.m_iStartOffset));
-  EndOffsetLineEdit->setText(QString("%1").arg(m_SharedInfos.m_iEndOffset));
   RatingCombo->setCurrentIndex(m_SharedInfos.m_iRating);
+
+  {
+    int vmin, vsec, vms;
+    ConvertTime(m_SharedInfos.m_iStartOffset, vmin, vsec, vms);
+
+    StartOffsetLineEditMin->setText(QString("%1").arg(vmin));
+    StartOffsetLineEditSec->setText(QString("%1").arg(vsec));
+    StartOffsetLineEditMS->setText(QString("%1").arg(vms));
+  }
+  {
+    int vmin, vsec, vms;
+    ConvertTime(m_SharedInfos.m_iEndOffset, vmin, vsec, vms);
+
+    EndOffsetLineEditMin->setText(QString("%1").arg(vmin));
+    EndOffsetLineEditSec->setText(QString("%1").arg(vsec));
+    EndOffsetLineEditMS->setText(QString("%1").arg(vms));
+  }
 
   for (const QString& loc : m_AllLocations)
   {
@@ -148,13 +163,23 @@ void SongInfoDlg::on_ButtonBox_clicked(QAbstractButton* button)
     if (EditStartOffset->isChecked())
     {
       partMask |= SongInfo::Part::StartOffset;
-      si.m_iStartOffset = StartOffsetLineEdit->text().toInt();
+
+      const int vmin = StartOffsetLineEditMin->text().toInt();
+      const int vsec = StartOffsetLineEditSec->text().toInt();
+      const int vms = StartOffsetLineEditMS->text().toInt();
+
+      si.m_iStartOffset = (vmin * 60 * 1000) + (vsec * 1000) + vms;
     }
 
     if (EditEndOffset->isChecked())
     {
       partMask |= SongInfo::Part::EndOffset;
-      si.m_iEndOffset = EndOffsetLineEdit->text().toInt();
+
+      const int vmin = EndOffsetLineEditMin->text().toInt();
+      const int vsec = EndOffsetLineEditSec->text().toInt();
+      const int vms = EndOffsetLineEditMS->text().toInt();
+
+      si.m_iEndOffset = (vmin * 60 * 1000) + (vsec * 1000) + vms;
     }
 
     if ((partMask & (SongInfo::Part::Album | SongInfo::Part::Artist | SongInfo::Part::Title | SongInfo::Part::Track | SongInfo::Part::Year)) != 0)
@@ -212,7 +237,7 @@ void SongInfoDlg::on_EditTitle_toggled(bool checked)
 
   if (!checked)
     TitleLineEdit->setText(m_SharedInfos.m_sTitle);
-}  
+}
 
 void SongInfoDlg::on_EditArtist_toggled(bool checked)
 {
@@ -264,18 +289,38 @@ void SongInfoDlg::on_EditVolume_toggled(bool checked)
 
 void SongInfoDlg::on_EditStartOffset_toggled(bool checked)
 {
-  StartOffsetLineEdit->setEnabled(checked);
+  StartOffsetLineEditMin->setEnabled(checked);
+  StartOffsetLineEditSec->setEnabled(checked);
+  StartOffsetLineEditMS->setEnabled(checked);
+  StartOffsetNow->setEnabled(checked);
 
   if (!checked)
-    StartOffsetLineEdit->setText(QString("%1").arg(m_SharedInfos.m_iStartOffset));
+  {
+    int vmin, vsec, vms;
+    ConvertTime(m_SharedInfos.m_iStartOffset, vmin, vsec, vms);
+
+    StartOffsetLineEditMin->setText(QString("%1").arg(vmin));
+    StartOffsetLineEditSec->setText(QString("%1").arg(vsec));
+    StartOffsetLineEditMS->setText(QString("%1").arg(vms));
+  }
 }
 
 void SongInfoDlg::on_EditEndOffset_toggled(bool checked)
 {
-  EndOffsetLineEdit->setEnabled(checked);
+  EndOffsetLineEditMin->setEnabled(checked);
+  EndOffsetLineEditSec->setEnabled(checked);
+  EndOffsetLineEditMS->setEnabled(checked);
+  EndOffsetNow->setEnabled(checked);
 
   if (!checked)
-    EndOffsetLineEdit->setText(QString("%1").arg(m_SharedInfos.m_iEndOffset));
+  {
+    int vmin, vsec, vms;
+    ConvertTime(m_SharedInfos.m_iEndOffset, vmin, vsec, vms);
+
+    EndOffsetLineEditMin->setText(QString("%1").arg(vmin));
+    EndOffsetLineEditSec->setText(QString("%1").arg(vsec));
+    EndOffsetLineEditMS->setText(QString("%1").arg(vms));
+  }
 }
 
 void SongInfoDlg::on_EditRating_toggled(bool checked)
@@ -284,6 +329,39 @@ void SongInfoDlg::on_EditRating_toggled(bool checked)
 
   if (!checked)
     RatingCombo->setCurrentIndex(m_SharedInfos.m_iRating);
-
 }
 
+void SongInfoDlg::on_StartOffsetNow_clicked()
+{
+  double pos = SoundDevice::GetSingleton()->GetPosition();
+
+  int vmin, vsec, vms;
+  ConvertTime(static_cast<int>(pos * 1000.0), vmin, vsec, vms);
+
+  StartOffsetLineEditMin->setText(QString("%1").arg(vmin));
+  StartOffsetLineEditSec->setText(QString("%1").arg(vsec));
+  StartOffsetLineEditMS->setText(QString("%1").arg(vms));
+}
+
+void SongInfoDlg::on_EndOffsetNow_clicked()
+{
+  double pos = SoundDevice::GetSingleton()->GetPosition();
+
+  int vmin, vsec, vms;
+  ConvertTime(static_cast<int>(pos * 1000.0), vmin, vsec, vms);
+
+  EndOffsetLineEditMin->setText(QString("%1").arg(vmin));
+  EndOffsetLineEditSec->setText(QString("%1").arg(vsec));
+  EndOffsetLineEditMS->setText(QString("%1").arg(vms));
+}
+
+void SongInfoDlg::ConvertTime(int curTimeMS, int& out_Minutes, int& out_Seconds, int& out_Milliseconds)
+{
+  out_Minutes = curTimeMS / (1000 * 60);
+  curTimeMS -= out_Minutes * (1000 * 60);
+
+  out_Seconds = curTimeMS / 1000;
+  curTimeMS -= out_Seconds * 1000;
+
+  out_Milliseconds = curTimeMS;
+}
