@@ -205,6 +205,9 @@
           </item>
           <item>
            <widget class="QPushButton" name="ClearSearchButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="maximumSize">
              <size>
               <width>30</width>

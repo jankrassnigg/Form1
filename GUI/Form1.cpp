@@ -740,9 +740,11 @@ void Form1::onSaveUserStateTimer()
 
 void Form1::on_SearchLine_textChanged(const QString& text)
 {
+  ClearSearchButton->setEnabled(!text.isEmpty());
+
   // delay retrieving the text
   m_iSearchDelayCounter++;
-  QTimer::singleShot(600, this, &Form1::onRefreshPlaylist);
+  QTimer::singleShot(450, this, &Form1::onRefreshPlaylist);
 }
 
 void Form1::on_ClearSearchButton_clicked()
