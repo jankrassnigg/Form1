@@ -329,7 +329,10 @@ void Form1::onPlaylistContextMenu(const QPoint& pos)
       if (!pl->CanModifySongList())
         continue;
 
-      QAction* pAdd = plMenu->addAction(pl->GetTitle());
+      QString title = pl->GetTitle();
+      title.replace("&", "&&");
+
+      QAction* pAdd = plMenu->addAction(title);
       pAdd->setData(QVariant::fromValue(static_cast<void*>(pl.get())));
       connect(pAdd, &QAction::triggered, this, &Form1::onAddSelectionToPlaylist);
 

@@ -14,6 +14,7 @@ TrackListView::TrackListView(QWidget* parent)
   setEditTriggers(QAbstractItemView::EditTrigger::NoEditTriggers);
 
   setSortingEnabled(true);
+  setRootIsDecorated(false);
 }
 
 void TrackListView::keyPressEvent(QKeyEvent* e)
@@ -74,6 +75,10 @@ RatingItemDelegate::RatingItemDelegate(QObject* parent)
 
 void RatingItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
+  painter->save();
+
+  painter->setClipRect(option.rect);
+
   if (option.state & QStyle::State_Selected)
     painter->fillRect(option.rect, option.palette.highlight());
   else
@@ -83,15 +88,7 @@ void RatingItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& op
 
   QRect r = option.rect;
   r.setHeight(16);
-  r.setLeft(20);
-  r.setRight(20 + 5 * 16);
-
-  painter->setClipRect(r);
-
-  if (option.state & QStyle::State_Selected)
-    painter->fillRect(r, option.palette.highlight());
-  else
-    painter->fillRect(r, option.palette.alternateBase());
+  r.setLeft(option.rect.left() + 16);
 
   for (int i = 0; i < rating; ++i)
   {
@@ -106,6 +103,8 @@ void RatingItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& op
     painter->drawPixmap(r, m_PixmapGrey);
     r.setLeft(r.left() + 16);
   }
+
+  painter->restore();
 }
 
 bool RatingItemDelegate::editorEvent(QEvent* event, QAbstractItemModel* model, const QStyleOptionViewItem& option, const QModelIndex& index)
@@ -114,13 +113,13 @@ bool RatingItemDelegate::editorEvent(QEvent* event, QAbstractItemModel* model, c
   {
     QMouseEvent* mouseEvent = (QMouseEvent*)event;
 
-    int x = mouseEvent->pos().x();
-    int newRating = (x - 20) / 16 + 1;
+    int x = mouseEvent->pos().x() - option.rect.left();
+    int newRating = x / 16;
 
     if (newRating > 5)
       return false;
 
-    if (x < 20)
+    if (newRating < 0)
       newRating = 0;
 
     QString guid = index.data(Qt::UserRole + 1).toString();
@@ -135,5 +134,5 @@ bool RatingItemDelegate::editorEvent(QEvent* event, QAbstractItemModel* model, c
 
 QSize RatingItemDelegate::sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
-  return QSize(16 * 5 + 20, 16);
+  return QSize(16 * 6, 16);
 }
