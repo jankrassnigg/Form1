@@ -153,13 +153,13 @@ bool SongInfo::ModifyFileTag(const QString& sFile, const SongInfo& info, unsigne
     return false;
 
   if ((PartMask & SongInfo::Part::Title) != 0)
-    tag->setTitle(info.m_sTitle.toUtf8().data());
+    tag->setTitle(TagLib::String(info.m_sTitle.toUtf8().data(), TagLib::String::UTF8));
 
   if ((PartMask & SongInfo::Part::Artist) != 0)
-    tag->setArtist(info.m_sArtist.toUtf8().data());
+    tag->setArtist(TagLib::String(info.m_sArtist.toUtf8().data(), TagLib::String::UTF8));
 
   if ((PartMask & SongInfo::Part::Album) != 0)
-    tag->setAlbum(info.m_sAlbum.toUtf8().data());
+    tag->setAlbum(TagLib::String(info.m_sAlbum.toUtf8().data(), TagLib::String::UTF8));
 
   if ((PartMask & SongInfo::Part::Track) != 0)
     tag->setTrack(info.m_iTrackNumber);
