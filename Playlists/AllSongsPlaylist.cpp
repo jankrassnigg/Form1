@@ -15,7 +15,7 @@ void AllSongsPlaylist::Refresh(PlaylistRefreshReason reason)
 
   beginResetModel();
 
-  m_AllSongs = std::move(MusicLibrary::GetSingleton()->GetAllSongGuids());
+  m_AllSongs = std::move(MusicLibrary::GetSingleton()->GetAllSongGuids(true));
 
   endResetModel();
 }

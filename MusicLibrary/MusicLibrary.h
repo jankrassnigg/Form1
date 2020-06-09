@@ -65,10 +65,10 @@ public:
   bool FindSong(const QString& songGuid, SongInfo& song) const;
 
   /// \brief Returns the SongInfo objects for all songs in the entire library. Uses the search string to filter the results.
-  std::deque<SongInfo> GetAllSongs() const;
+  std::deque<SongInfo> GetAllSongs(bool bUseSearchString) const;
 
   /// \brief Returns the GUIDs for all songs in the entire library. Uses the search string to filter the results.
-  std::deque<QString> GetAllSongGuids() const;
+  std::deque<QString> GetAllSongGuids(bool bUseSearchString) const;
 
   std::deque<SongInfo> LookupSongs(const QString& where, const QString& orderBy = "artist, album, disc, track") const;
 

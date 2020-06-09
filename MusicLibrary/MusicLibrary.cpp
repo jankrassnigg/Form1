@@ -25,6 +25,24 @@ MusicLibrary::~MusicLibrary()
   s_Singleton = nullptr;
 }
 
+static void SqliteToUpper(sqlite3_context* context, int argc, sqlite3_value** argv)
+{
+  if (argc == 1)
+  {
+    const char* text = reinterpret_cast<const char*>(sqlite3_value_text(argv[0]));
+
+    if (text && text[0])
+    {
+      const QString sText = QString::fromUtf8(text).toUpper();
+
+      sqlite3_result_text(context, sText.toUtf8().data(), -1, SQLITE_TRANSIENT);
+      return;
+    }
+  }
+
+  sqlite3_result_null(context);
+}
+
 void MusicLibrary::Startup(const QString& sAppDir)
 {
   Shutdown();
@@ -50,6 +68,8 @@ void MusicLibrary::Startup(const QString& sAppDir)
 
   connect(AppState::GetSingleton(), &AppState::BusyWorkActive, this, &MusicLibrary::onBusyWorkChanged);
   connect(AppConfig::GetSingleton(), &AppConfig::ProfileDirectoryChanged, this, &MusicLibrary::onProfileDirectoryChanged);
+
+  sqlite3_create_function(m_pSongDatabase, "UPPER", 1, SQLITE_UTF8 | SQLITE_DETERMINISTIC, nullptr, SqliteToUpper, nullptr, nullptr);
 }
 
 void MusicLibrary::Shutdown()
@@ -362,7 +382,7 @@ bool MusicLibrary::FindSong(const QString& songGuid, SongInfo& song) const
   return bFound;
 }
 
-std::deque<SongInfo> MusicLibrary::GetAllSongs() const
+std::deque<SongInfo> MusicLibrary::GetAllSongs(bool bUseSearchString) const
 {
   std::deque<SongInfo> allSongs;
 
@@ -373,7 +393,7 @@ std::deque<SongInfo> MusicLibrary::GetAllSongs() const
                   ", strftime('%Y-%m-%d %H:%M', dateadded, 'unixepoch', 'localtime') AS addedstring"
                   " FROM music ORDER BY artist, album, disc, track";
 
-    if (!m_sSearchText.isEmpty())
+    if (bUseSearchString && !m_sSearchText.isEmpty())
     {
       char tmp[128];
 
@@ -387,7 +407,7 @@ std::deque<SongInfo> MusicLibrary::GetAllSongs() const
           condition.append(" AND ");
 
         sqlite3_snprintf(127, tmp, "%q", piece.toUtf8().data());
-        condition.append(QString("(title LIKE '%%%1%%' OR artist LIKE '%%%1%%' OR album LIKE '%%%1%%')").arg(tmp));
+        condition.append(QString("(UPPER(title) LIKE UPPER('%%%1%%') OR UPPER(artist) LIKE UPPER('%%%1%%') OR UPPER(album) LIKE UPPER('%%%1%%'))").arg(tmp));
       }
 
       sql = QString("SELECT *"
@@ -404,7 +424,7 @@ std::deque<SongInfo> MusicLibrary::GetAllSongs() const
   return std::move(allSongs);
 }
 
-std::deque<QString> MusicLibrary::GetAllSongGuids() const
+std::deque<QString> MusicLibrary::GetAllSongGuids(bool bUseSearchString) const
 {
   std::deque<QString> allSongs;
 
@@ -412,7 +432,7 @@ std::deque<QString> MusicLibrary::GetAllSongGuids() const
   {
     QString sql = "SELECT id FROM music";
 
-    if (!m_sSearchText.isEmpty())
+    if (bUseSearchString && !m_sSearchText.isEmpty())
     {
       char tmp[128];
 
@@ -426,7 +446,7 @@ std::deque<QString> MusicLibrary::GetAllSongGuids() const
           condition.append(" AND ");
 
         sqlite3_snprintf(127, tmp, "%q", piece.toUtf8().data());
-        condition.append(QString("(title LIKE '%%%1%%' OR artist LIKE '%%%1%%' OR album LIKE '%%%1%%')").arg(tmp));
+        condition.append(QString("(UPPER(title) LIKE UPPER('%%%1%%') OR UPPER(artist) LIKE UPPER('%%%1%%') OR UPPER(album) LIKE UPPER('%%%1%%'))").arg(tmp));
       }
 
       sql = QString("SELECT id FROM music WHERE %1"
@@ -920,7 +940,7 @@ void MusicLibrary::RestoreFromDatabase()
   if (m_pSongDatabase == nullptr)
     return;
 
-  const std::deque<SongInfo> allSongs = GetAllSongs();
+  const std::deque<SongInfo> allSongs = GetAllSongs(false);
 
   for (const SongInfo& si : allSongs)
   {
