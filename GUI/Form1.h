@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Config/AppState.h"
-#include "Misc/Common.h"
 #include "GUI/Sidebar.h"
+#include "Misc/Common.h"
 #include <QMainWindow>
 #include <QSystemTrayIcon>
 #include <ui_Form1.h>
@@ -12,6 +12,7 @@
 #endif
 
 class QLocalServer;
+class RateSongDlg;
 
 class Form1 : public QMainWindow, Ui_Form1
 {
@@ -60,9 +61,11 @@ private slots:
   void onShowSongInfo();
   void onRefreshSelectedPlaylist();
   void onRateSongs();
+  void onRateSong(QString guid, int rating);
   void onBusyWorkActive(bool active);
   void onSaveUserStateTimer();
   void onCopyActionTriggered(bool);
+  void onSongRequiresRating(QString guid);
 
 private:
   void ChangeSelectedPlaylist(Playlist* playlist);
@@ -80,6 +83,7 @@ private:
   QScopedPointer<QLocalServer> m_LocalInstanceServer;
   QScopedPointer<QAction> m_pTrayPlayPauseAction;
   QScopedPointer<QAction> m_pCopyAction;
+  QScopedPointer<RateSongDlg> m_pRateSongDlg;
   bool m_bWasMaximized = false;
 
 #ifdef Q_OS_WIN32

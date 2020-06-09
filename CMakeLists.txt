@@ -76,6 +76,7 @@ set (FILES_TO_UI
   "GUI/Form1.ui"
   "Config/SettingsDlg.ui"
   "GUI/SongInfoDlg.ui"
+  "GUI/RateSongDlg.ui"
   "SmartPlaylists/SmartPlaylistDlg.ui"
   "MusicLibrary/SortLibraryDlg.ui"
 )
@@ -95,6 +96,7 @@ set (FILES_TO_MOC
   "Config/SettingsDlg.h"
   "GUI/TracklistView.h"
   "GUI/SongInfoDlg.h"
+  "GUI/RateSongDlg.h"
   "SoundDevices/SoundDevice.h"
   # "SoundDevices/SoundDeviceQt.h"
   "SoundDevices/SoundDeviceBass.h"
@@ -112,6 +114,7 @@ set (OTHER_SOURCES
   "MusicLibrary/MusicLibrary.cpp"
   "Playlists/Playlist.cpp"
   "GUI/Sidebar.cpp"
+  "GUI/RateSongDlg.cpp"
   "Config/AppState.cpp"
   "Misc/Utils.cpp"
   "Misc/Song.h"

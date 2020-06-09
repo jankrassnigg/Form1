@@ -24,6 +24,9 @@ public:
   void SetProfileDirectory(const QString& sDirectory);
   const QString& GetProfileDirectory() const { return m_sProfileDirectory; }
 
+  void SetShowRateSongPopup(bool show) { m_bShowRateSongPopup = show; }
+  bool GetShowRateSongPopup() const { return m_bShowRateSongPopup; }
+
 signals:
   void MusicSourceAdded(const QString& path);
   void MusicSourcesChanged();
@@ -32,6 +35,7 @@ signals:
 private:
   QString m_sProfileDirectory;
   std::vector<QString> m_MusicSources;
+  bool m_bShowRateSongPopup = false;
 
   static AppConfig* s_pSingleton;
 };

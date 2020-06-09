@@ -88,6 +88,7 @@ signals:
   void PlayingStateChanged();
   void RefreshSelectedPlaylist();
   void BusyWorkActive(bool bActive);
+  void SongRequiresRating(QString guid);
 
 private slots:
   void onActiveSongChanged(int index);

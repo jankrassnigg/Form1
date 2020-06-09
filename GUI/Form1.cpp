@@ -5,8 +5,10 @@
 #include "GUI/SongInfoDlg.h"
 #include "MusicLibrary/MusicLibrary.h"
 #include "Playlists/RegularPlaylist.h"
+#include "RateSongDlg.h"
 #include "SmartPlaylists/SmartPlaylist.h"
 
+#include <QApplication>
 #include <QClipboard>
 #include <QDir>
 #include <QInputDialog>
@@ -18,6 +20,7 @@
 #include <QMimeData>
 #include <QProcess>
 #include <QProxyStyle>
+#include <QScreen>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
@@ -122,6 +125,7 @@ Form1::Form1()
   connect(pAppState, &AppState::PlayingStateChanged, this, &Form1::onPlayingStateChanged);
   connect(pAppState, &AppState::RefreshSelectedPlaylist, this, &Form1::onRefreshSelectedPlaylist);
   connect(pAppState, &AppState::BusyWorkActive, this, &Form1::onBusyWorkActive, Qt::QueuedConnection);
+  connect(pAppState, &AppState::SongRequiresRating, this, &Form1::onSongRequiresRating);
 
   // start busy indicator
   onBusyWorkActive(pAppState->IsBusyWorkActive());
@@ -172,6 +176,10 @@ Form1::Form1()
 
   StartSingleInstanceServer();
   RegisterGlobalHotkeys();
+
+  m_pRateSongDlg.reset(new RateSongDlg());
+
+  connect(m_pRateSongDlg.get(), &RateSongDlg::SongRated, this, &Form1::onRateSong);
 
   QTimer::singleShot(1000 * 120, this, SLOT(onSaveUserStateTimer()));
 }
@@ -655,8 +663,8 @@ void Form1::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
     }
     else
     {
-    showNormal();
-  }
+      showNormal();
+    }
   }
 }
 
@@ -670,7 +678,7 @@ void Form1::onSingleInstanceActivation()
   }
   else
   {
-  showNormal();
+    showNormal();
   }
 }
 
@@ -728,6 +736,11 @@ void Form1::onRateSongs()
 
     MusicLibrary::GetSingleton()->UpdateSongRating(sGuid, iRating, true);
   }
+}
+
+void Form1::onRateSong(QString guid, int rating)
+{
+  MusicLibrary::GetSingleton()->UpdateSongRating(guid, rating, true);
 }
 
 void Form1::onBusyWorkActive(bool active)
@@ -962,4 +975,27 @@ void Form1::onCopyActionTriggered(bool)
   QMimeData* mimeData = new QMimeData();
   mimeData->setUrls(fileUrls);
   QGuiApplication::clipboard()->setMimeData(mimeData);
+}
+
+void Form1::onSongRequiresRating(QString guid)
+{
+  if (!AppConfig::GetSingleton()->GetShowRateSongPopup())
+    return;
+
+  SongInfo info;
+  MusicLibrary::GetSingleton()->FindSong(guid, info);
+
+  m_pRateSongDlg->setWindowFlag(Qt::WindowType::WindowStaysOnTopHint, true);
+  m_pRateSongDlg->SetSongToRate(guid, info.m_sArtist, info.m_sTitle);
+
+  const QRect screen = QApplication::primaryScreen()->availableGeometry();
+  m_pRateSongDlg->updateGeometry();
+  const QRect dlgGeo = m_pRateSongDlg->geometry();
+
+  QPoint pos = screen.bottomRight();
+  pos.setX(pos.x() - dlgGeo.size().width());
+  pos.setY(pos.y() - dlgGeo.size().height() - 35);
+
+  m_pRateSongDlg->move(pos);
+  m_pRateSongDlg->show();
 }

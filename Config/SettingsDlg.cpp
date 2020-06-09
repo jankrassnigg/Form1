@@ -1,9 +1,9 @@
-#include "Config/AppConfig.h"
 #include "Config/SettingsDlg.h"
+#include "Config/AppConfig.h"
+#include "Config/AppState.h"
+#include "MusicLibrary/MusicSource.h"
 #include <QFileDialog>
 #include <QTableWidget>
-#include "MusicLibrary/MusicSource.h"
-#include "Config/AppState.h"
 
 SettingsDlg::SettingsDlg()
 {
@@ -16,11 +16,14 @@ SettingsDlg::SettingsDlg()
 
   ProfileDirLineEdit->setText(AppConfig::GetSingleton()->GetProfileDirectory());
 
+  ShowRatingDialog->setChecked(AppConfig::GetSingleton()->GetShowRateSongPopup());
+
   FillMusicFoldersList();
 }
 
 SettingsDlg::~SettingsDlg()
 {
+  AppConfig::GetSingleton()->SetShowRateSongPopup(ShowRatingDialog->isChecked());
 }
 
 void SettingsDlg::on_BrowseProfileDirButton_clicked()
@@ -106,4 +109,3 @@ void SettingsDlg::onSortDirClicked()
     ptr->Sort(sDir);
   }
 }
-

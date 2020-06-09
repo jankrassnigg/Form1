@@ -35,7 +35,7 @@ void AppConfig::Load(const QString& sAppDir)
   int version = 0;
   stream >> version;
 
-  if (version != 1)
+  if (version != 1 && version != 2)
     return;
 
   stream >> m_sProfileDirectory;
@@ -49,6 +49,11 @@ void AppConfig::Load(const QString& sAppDir)
   {
     stream >> m_MusicSources[i];
   }
+
+  if (version >= 2)
+  {
+    stream >> m_bShowRateSongPopup;
+  }
 }
 
 void AppConfig::Save(const QString& sAppDir)
@@ -61,7 +66,7 @@ void AppConfig::Save(const QString& sAppDir)
 
   QDataStream stream(&file);
 
-  int version = 1;
+  int version = 2;
   stream << version;
 
   stream << m_sProfileDirectory;
@@ -73,6 +78,8 @@ void AppConfig::Save(const QString& sAppDir)
   {
     stream << m_MusicSources[i];
   }
+
+  stream << m_bShowRateSongPopup;
 }
 
 void AppConfig::RemoveMusicSource(int index)

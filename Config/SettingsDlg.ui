@@ -44,6 +44,13 @@
     </layout>
    </item>
    <item>
+    <widget class="QCheckBox" name="ShowRatingDialog">
+     <property name="text">
+      <string>Show 'Rate Song' Popup</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QLabel" name="label_2">
      <property name="text">
       <string>Music Folders:</string>
