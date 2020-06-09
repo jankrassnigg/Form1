@@ -111,8 +111,7 @@ void ezDirectoryWatcher::EnumerateChanges(std::function<void(const QString& file
     auto info = (const FILE_NOTIFY_INFORMATION*)buffer.data();
     while (true)
     {
-      QString filename;
-      filename.fromWCharArray(info->FileName, info->FileNameLength / sizeof(WCHAR));
+      QString filename = QString::fromWCharArray(info->FileName, info->FileNameLength / sizeof(WCHAR));
 
       if (!filename.isEmpty())
       {
