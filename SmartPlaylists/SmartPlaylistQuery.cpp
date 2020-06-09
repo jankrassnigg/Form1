@@ -237,45 +237,46 @@ QString SmartPlaylistQuery::ToDbString(Criterium c)
 
 QString SmartPlaylistQuery::ToDbString(Comparison c, const QString& value)
 {
-  // TODO: escape value
+  char tmp[256];
+  sqlite3_snprintf(255, tmp, "%q", value.toUtf8().data());
 
   switch (c)
   {
   case Comparison::Equal:
-    return QString(" = ") + value;
+    return QString(" = %1").arg(tmp);
 
   case Comparison::NotEqual:
-    return QString(" <> ") + value;
+    return QString(" <> %1").arg(tmp);
 
   case Comparison::Less:
-    return QString(" < ") + value;
+    return QString(" < %1").arg(tmp);
 
   case Comparison::LessEqual:
-    return QString(" <= ") + value;
+    return QString(" <= %1").arg(tmp);
 
   case Comparison::Greater:
-    return QString(" > ") + value;
+    return QString(" > %1").arg(tmp);
 
   case Comparison::GreaterEqual:
-    return QString(" >= ") + value;
+    return QString(" >= %1").arg(tmp);
 
   case Comparison::Is:
-    return QString(" = '") + value + QString("'");
+    return QString(" = '%1'").arg(tmp);
 
   case Comparison::IsNot:
-    return QString(" != '") + value + QString("'");
+    return QString(" != '%1'").arg(tmp);
 
   case Comparison::Contains:
-    return QString(" LIKE '%%") + value + QString("%%'");
+    return QString(" LIKE '%%%1%%'").arg(tmp);
 
   case Comparison::ContainsNot:
-    return QString(" NOT LIKE '%%") + value + QString("%%'");
+    return QString(" NOT LIKE '%%%1%%'").arg(tmp);
 
   case Comparison::StartsWith:
-    return QString(" LIKE '") + value + QString("%%'");
+    return QString(" LIKE '%1%%'").arg(tmp);
 
   case Comparison::EndsWith:
-    return QString(" LIKE '%%") + value + QString("'");
+    return QString(" LIKE '%%%1'").arg(tmp);
 
   case Comparison::IsUnknown:
     return QString(" IS NULL");
