@@ -42,7 +42,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   virtual QString GetFactoryName() const override;
-  virtual void Refresh() override;
+  virtual void Refresh(PlaylistRefreshReason reason) override;
 
   virtual void ExtendContextMenu(QMenu* pMenu) override;
 
@@ -70,9 +70,11 @@ public:
 
 private slots:
   void onShowEditDlg();
+  void onRefreshPlaylist();
 
 private:
   friend SmartPlaylistModification;
+  friend class SmartPlaylistDlg;
 
   SmartPlaylistQuery m_Query;
   std::deque<QString> m_Songs;

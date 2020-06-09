@@ -5,6 +5,16 @@
 #include <QDataStream>
 #include <QIcon>
 
+enum class PlaylistRefreshReason
+{
+  SwitchPlaylist,
+  SearchChanged,
+  TrackRemoved,
+  PlaylistModified,
+  SongInfoChanged,
+  PlaylistLoaded,
+};
+
 class Playlist : public QAbstractItemModel
 {
   Q_OBJECT
@@ -27,7 +37,7 @@ public:
   virtual QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
 
   virtual QString GetFactoryName() const = 0;
-  virtual void Refresh() = 0;
+  virtual void Refresh(PlaylistRefreshReason reason) = 0;
 
   virtual void ExtendContextMenu(QMenu* pMenu) {}
 

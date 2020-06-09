@@ -8,8 +8,11 @@ RegularPlaylist::RegularPlaylist(const QString& sTitle, const QString& guid)
 {
 }
 
-void RegularPlaylist::Refresh()
+void RegularPlaylist::Refresh(PlaylistRefreshReason reason)
 {
+  if (reason == PlaylistRefreshReason::PlaylistLoaded)
+    return;
+
   beginResetModel();
   endResetModel();
 }

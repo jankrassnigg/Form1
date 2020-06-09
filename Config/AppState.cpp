@@ -356,7 +356,7 @@ void AppState::SetActivePlaylist(Playlist* playlist)
   if (m_pActivePlaylist)
   {
     connect(m_pActivePlaylist, &Playlist::ActiveSongChanged, this, &AppState::onActiveSongChanged);
-    m_pActivePlaylist->Refresh();
+    m_pActivePlaylist->Refresh(PlaylistRefreshReason::SwitchPlaylist);
   }
 
   emit ActivePlaylistChanged(prevList, m_pActivePlaylist);
@@ -630,6 +630,11 @@ void AppState::LoadAllPlaylists()
       continue;
 
     LoadPlaylist(sPlaylist);
+  }
+
+  for (size_t i = 0; i < m_AllPlaylists.size(); ++i)
+  {
+    m_AllPlaylists[i]->Refresh(PlaylistRefreshReason::PlaylistLoaded);
   }
 }
 

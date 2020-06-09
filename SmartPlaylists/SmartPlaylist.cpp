@@ -1,8 +1,8 @@
-#include "Config/AppState.h"
-#include "MusicLibrary/MusicLibrary.h"
 #include "SmartPlaylists/SmartPlaylist.h"
-#include "SmartPlaylistDlg.h"
+#include "Config/AppState.h"
 #include "Misc/Song.h"
+#include "MusicLibrary/MusicLibrary.h"
+#include "SmartPlaylistDlg.h"
 #include <QColor>
 #include <QFont>
 #include <QMenu>
@@ -22,18 +22,21 @@ SmartPlaylist::SmartPlaylist(const QString& sTitle, const QString& guid)
   }
 }
 
-void SmartPlaylist::Refresh()
+void SmartPlaylist::Refresh(PlaylistRefreshReason reason)
 {
-  QString sql = m_Query.GenerateSQL();
-
-  std::deque<SongInfo> songs = std::move(MusicLibrary::GetSingleton()->LookupSongs(sql, m_Query.GenerateOrderBySQL()));
-
-  beginResetModel();
-
-  m_Songs.clear();
-  for (const SongInfo& si : songs)
+  if (reason == PlaylistRefreshReason::PlaylistModified || reason == PlaylistRefreshReason::PlaylistLoaded)
   {
-    m_Songs.push_back(si.m_sSongGuid);
+    QString sql = m_Query.GenerateSQL();
+
+    std::deque<SongInfo> songs = std::move(MusicLibrary::GetSingleton()->LookupSongs(sql, m_Query.GenerateOrderBySQL()));
+
+    beginResetModel();
+
+    m_Songs.clear();
+    for (const SongInfo& si : songs)
+    {
+      m_Songs.push_back(si.m_sSongGuid);
+    }
   }
 
   if (m_Query.m_SortOrder == SmartPlaylistQuery::SortOrder::Random)
@@ -55,6 +58,7 @@ void SmartPlaylist::Refresh()
 void SmartPlaylist::ExtendContextMenu(QMenu* pMenu)
 {
   connect(pMenu->addAction("Edit Smart Playlist..."), &QAction::triggered, this, &SmartPlaylist::onShowEditDlg);
+  connect(pMenu->addAction("Refresh Smart Playlist"), &QAction::triggered, this, &SmartPlaylist::onRefreshPlaylist);
 }
 
 int SmartPlaylist::GetNumSongs() const
@@ -158,7 +162,7 @@ bool SmartPlaylist::LookupSongByIndex(int index, SongInfo& song) const
 
 void SmartPlaylist::ShowEditor()
 {
-  SmartPlaylistDlg dlg(m_Query, nullptr);
+  SmartPlaylistDlg dlg(this, nullptr);
   if (dlg.exec() == QDialog::Accepted)
   {
     m_bWasModified = true;
@@ -169,7 +173,7 @@ void SmartPlaylist::ShowEditor()
 
     m_Recorder.AddModification(mod, this);
 
-    Refresh();
+    Refresh(PlaylistRefreshReason::PlaylistModified);
   }
 }
 
@@ -181,6 +185,11 @@ bool SmartPlaylist::ContainsSong(const QString& songGuid)
 void SmartPlaylist::onShowEditDlg()
 {
   ShowEditor();
+}
+
+void SmartPlaylist::onRefreshPlaylist()
+{
+  Refresh(PlaylistRefreshReason::PlaylistModified);
 }
 
 QModelIndex SmartPlaylist::index(int row, int column, const QModelIndex& parent /*= QModelIndex()*/) const

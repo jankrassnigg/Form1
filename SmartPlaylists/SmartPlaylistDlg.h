@@ -1,18 +1,19 @@
 #pragma once
 
 #include "Misc/Common.h"
+#include "SmartPlaylists/SmartPlaylistQuery.h"
 #include <QDialog>
 #include <ui_SmartPlaylistDlg.h>
-#include "SmartPlaylists/SmartPlaylistQuery.h"
 
 class QComboBox;
+class SmartPlaylist;
 
 class SmartPlaylistDlg : public QDialog, Ui_SmartPlaylistDlg
 {
   Q_OBJECT
 
 public:
-  SmartPlaylistDlg(const SmartPlaylistQuery& query, QWidget* parent);
+  SmartPlaylistDlg(SmartPlaylist* playlist, QWidget* parent);
 
   const SmartPlaylistQuery& GetQuery() const { return m_Query; }
 
@@ -33,6 +34,8 @@ private:
   void AddStatementUI(SmartPlaylistQuery::ConditionGroup* pGroup, SmartPlaylistQuery::Statement* pStmt, QWidget* pParentWidget);
   void FillCriteriums(QComboBox* pCombo);
   void FillConditions(QComboBox* pCombo, SmartPlaylistQuery::Criterium crit);
+  void Apply();
 
+  SmartPlaylist* m_Playlist = nullptr;
   SmartPlaylistQuery m_Query;
 };

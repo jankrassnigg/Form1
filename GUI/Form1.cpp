@@ -573,7 +573,7 @@ void Form1::ChangeSelectedPlaylist(Playlist* pSelected)
   }
 
   m_pSelectedPlaylist = pSelected;
-  m_pSelectedPlaylist->Refresh();
+  m_pSelectedPlaylist->Refresh(PlaylistRefreshReason::SwitchPlaylist);
   TracksView->sortByColumn(PlaylistColumn::Order, Qt::AscendingOrder);
   TracksView->setSortingEnabled(m_pSelectedPlaylist->CanSort());
   TracksView->setModel(m_pSelectedPlaylist);
@@ -628,7 +628,7 @@ void Form1::onRefreshPlaylist()
 
 void Form1::onSearchTextChanged(const QString& newText)
 {
-  m_pSelectedPlaylist->Refresh();
+  m_pSelectedPlaylist->Refresh(PlaylistRefreshReason::SearchChanged);
 }
 
 void Form1::onLoopShuffleStateChanged()
@@ -678,7 +678,7 @@ void Form1::onRefreshSelectedPlaylist()
 {
   if (m_pSelectedPlaylist)
   {
-    m_pSelectedPlaylist->Refresh();
+    m_pSelectedPlaylist->Refresh(PlaylistRefreshReason::SongInfoChanged);
   }
 }
 
@@ -709,9 +709,6 @@ void Form1::onRateSongs()
 
     MusicLibrary::GetSingleton()->UpdateSongRating(sGuid, iRating, true);
   }
-
-  // TODO: use better signal
-  m_pSelectedPlaylist->Refresh();
 }
 
 void Form1::onBusyWorkActive(bool active)
@@ -811,7 +808,7 @@ void Form1::onRemoveTracks()
   }
 
   // TODO: use better signal
-  m_pSelectedPlaylist->Refresh();
+  m_pSelectedPlaylist->Refresh(PlaylistRefreshReason::TrackRemoved);
 }
 
 void Form1::onStartCurrentTrack()

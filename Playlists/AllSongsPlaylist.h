@@ -22,7 +22,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   virtual QString GetFactoryName() const override;
-  virtual void Refresh() override;
+  virtual void Refresh(PlaylistRefreshReason reason) override;
   virtual int GetNumSongs() const override;
   virtual QIcon GetIcon() const override;
   virtual PlaylistCategory GetCategory() override;

@@ -8,8 +8,11 @@ AllSongsPlaylist::AllSongsPlaylist()
 {
 }
 
-void AllSongsPlaylist::Refresh()
+void AllSongsPlaylist::Refresh(PlaylistRefreshReason reason)
 {
+  if (reason == PlaylistRefreshReason::PlaylistLoaded)
+    return;
+
   beginResetModel();
 
   m_AllSongs = std::move(MusicLibrary::GetSingleton()->GetAllSongGuids());

@@ -1,26 +1,29 @@
 #include "SmartPlaylistDlg.h"
+#include "SmartPlaylist.h"
 #include <QComboBox>
+#include <QDialogButtonBox>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QDialogButtonBox>
 
-SmartPlaylistDlg::SmartPlaylistDlg(const SmartPlaylistQuery& query, QWidget* parent)
-  : QDialog(parent)
+SmartPlaylistDlg::SmartPlaylistDlg(SmartPlaylist* playlist, QWidget* parent)
+    : QDialog(parent)
 {
+  m_Playlist = playlist;
+
   setupUi(this);
 
   StatementsArea->setLayout(new QVBoxLayout());
   StatementsArea->setWidgetResizable(true);
 
-  m_Query = query;
+  m_Query = playlist->m_Query;
 
   for (int i = 0; i < (int)SmartPlaylistQuery::SortOrder::ENUM_COUNT; ++i)
   {
     SortPlaylistCombo->addItem(SmartPlaylistQuery::ToUiString((SmartPlaylistQuery::SortOrder)i));
   }
 
-  SortPlaylistCombo->setCurrentIndex((int)query.m_SortOrder);
-  SongLimitSpinbox->setValue(query.m_iSongLimit);
+  SortPlaylistCombo->setCurrentIndex((int)m_Query.m_SortOrder);
+  SongLimitSpinbox->setValue(m_Query.m_iSongLimit);
 
   RebuildUI();
 }
@@ -209,6 +212,22 @@ void SmartPlaylistDlg::FillConditions(QComboBox* pCombo, SmartPlaylistQuery::Cri
   }
 }
 
+void SmartPlaylistDlg::Apply()
+{
+  m_Query.m_SortOrder = (SmartPlaylistQuery::SortOrder)SortPlaylistCombo->currentIndex();
+  m_Query.m_iSongLimit = SongLimitSpinbox->value();
+
+  m_Playlist->SetModified();
+
+  SmartPlaylistModification mod;
+  mod.m_Query = m_Query;
+  mod.m_Type = SmartPlaylistModification::Type::ChangeQuery;
+
+  m_Playlist->m_Recorder.AddModification(mod, m_Playlist);
+
+  m_Playlist->Refresh(PlaylistRefreshReason::PlaylistModified);
+}
+
 void SmartPlaylistDlg::onCriteriumChanged(int index)
 {
   QComboBox* pCombo = qobject_cast<QComboBox*>(sender());
@@ -252,8 +271,7 @@ void SmartPlaylistDlg::on_ButtonBox_clicked(QAbstractButton* button)
 {
   if (button == ButtonBox->button(QDialogButtonBox::StandardButton::Save))
   {
-    m_Query.m_SortOrder = (SmartPlaylistQuery::SortOrder) SortPlaylistCombo->currentIndex();
-    m_Query.m_iSongLimit = SongLimitSpinbox->value();
+    Apply();
 
     accept();
     return;
@@ -262,6 +280,12 @@ void SmartPlaylistDlg::on_ButtonBox_clicked(QAbstractButton* button)
   if (button == ButtonBox->button(QDialogButtonBox::StandardButton::Cancel))
   {
     reject();
+    return;
+  }
+
+  if (button == ButtonBox->button(QDialogButtonBox::StandardButton::Apply))
+  {
+    Apply();
     return;
   }
 }
