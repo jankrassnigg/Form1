@@ -63,7 +63,9 @@ void MusicSourceFolder::ParseFolder()
   }
 
   if (imported > 0)
+  {
     AppState::GetSingleton()->SongsHaveBeenImported();
+  }
 
   AppState::GetSingleton()->EndBusyWork();
 }

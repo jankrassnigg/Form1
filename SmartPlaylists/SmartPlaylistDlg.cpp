@@ -67,6 +67,7 @@ QWidget* SmartPlaylistDlg::AddGroupUI(SmartPlaylistQuery::ConditionGroup* pParen
       QPushButton* pRemoveGroupButton = new QPushButton(pGroupWidget);
       pRemoveGroupButton->setText(QString());
       pRemoveGroupButton->setIcon(QIcon(":/icons/icons/remove_group.png"));
+      pRemoveGroupButton->setToolTip("Remove Group");
       pRemoveGroupButton->setProperty("group", QVariant::fromValue<void*>(pGroup));
       pRemoveGroupButton->setProperty("parentgroup", QVariant::fromValue<void*>(pParentGroup));
       connect(pRemoveGroupButton, &QPushButton::clicked, this, &SmartPlaylistDlg::onRemoveGroupClicked);
@@ -80,6 +81,7 @@ QWidget* SmartPlaylistDlg::AddGroupUI(SmartPlaylistQuery::ConditionGroup* pParen
       pFulfilBox->addItem("any");
       pFulfilBox->setCurrentIndex((int)pGroup->m_Fulfil);
       pFulfilBox->setProperty("group", QVariant::fromValue<void*>(pGroup));
+      pFulfilBox->setToolTip("How many statements in this group must be fulfilled.");
       connect(pFulfilBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onFulfilChanged(int)));
 
       pHeader->layout()->addWidget(pFulfilBox);
@@ -92,6 +94,7 @@ QWidget* SmartPlaylistDlg::AddGroupUI(SmartPlaylistQuery::ConditionGroup* pParen
       pAddGroupButton->setText(QString());
       pAddGroupButton->setIcon(QIcon(":/icons/icons/add_group.png"));
       pAddGroupButton->setProperty("group", QVariant::fromValue<void*>(pGroup));
+      pAddGroupButton->setToolTip("Add Group");
       connect(pAddGroupButton, &QPushButton::clicked, this, &SmartPlaylistDlg::onAddGroupClicked);
 
       pHeader->layout()->addWidget(pAddGroupButton);
@@ -102,6 +105,7 @@ QWidget* SmartPlaylistDlg::AddGroupUI(SmartPlaylistQuery::ConditionGroup* pParen
       pAddStmtButton->setText(QString());
       pAddStmtButton->setIcon(QIcon(":/icons/icons/add_statement.png"));
       pAddStmtButton->setProperty("group", QVariant::fromValue<void*>(pGroup));
+      pAddStmtButton->setToolTip("Add Statement");
       connect(pAddStmtButton, &QPushButton::clicked, this, &SmartPlaylistDlg::onAddStatementClicked);
 
       pHeader->layout()->addWidget(pAddStmtButton);
@@ -140,6 +144,7 @@ void SmartPlaylistDlg::AddStatementUI(SmartPlaylistQuery::ConditionGroup* pGroup
     pRemove->setProperty("group", QVariant::fromValue<void*>(pGroup));
     pRemove->setIcon(QIcon(":/icons/icons/remove_statement.png"));
     pRemove->setText(QString());
+    pRemove->setToolTip("Remove Statement");
     connect(pRemove, &QPushButton::clicked, this, &SmartPlaylistDlg::onRemoveSmtClicked);
 
     pContainer->layout()->addWidget(pRemove);
@@ -151,6 +156,7 @@ void SmartPlaylistDlg::AddStatementUI(SmartPlaylistQuery::ConditionGroup* pGroup
     pCriterium->setProperty("stmt", QVariant::fromValue<void*>(pStmt));
     FillCriteriums(pCriterium);
     pCriterium->setCurrentIndex((int)pStmt->m_Criterium);
+    pCriterium->setToolTip("The criterion to check");
     connect(pCriterium, SIGNAL(currentIndexChanged(int)), this, SLOT(onCriteriumChanged(int)));
 
     pContainer->layout()->addWidget(pCriterium);
@@ -162,6 +168,7 @@ void SmartPlaylistDlg::AddStatementUI(SmartPlaylistQuery::ConditionGroup* pGroup
     pCompare->setProperty("stmt", QVariant::fromValue<void*>(pStmt));
     FillConditions(pCompare, pStmt->m_Criterium);
     pCompare->setCurrentText(SmartPlaylistQuery::ToUiString(pStmt->m_Compare));
+    pCompare->setToolTip("How to compare the criterion with the value");
     connect(pCompare, SIGNAL(currentIndexChanged(int)), this, SLOT(onCompareChanged(int)));
 
     pContainer->layout()->addWidget(pCompare);
@@ -172,6 +179,7 @@ void SmartPlaylistDlg::AddStatementUI(SmartPlaylistQuery::ConditionGroup* pGroup
     pValue->setObjectName("Value");
     pValue->setProperty("stmt", QVariant::fromValue<void*>(pStmt));
     pValue->setText(pStmt->m_Value);
+    pValue->setToolTip("The value to compare the criterion against");
     connect(pValue, &QLineEdit::textChanged, this, &SmartPlaylistDlg::onValueChanged);
 
     pContainer->layout()->addWidget(pValue);
@@ -184,7 +192,7 @@ void SmartPlaylistDlg::FillCriteriums(QComboBox* pCombo)
 
   for (int i = 0; i < (int)SmartPlaylistQuery::Criterium::ENUM_COUNT; ++i)
   {
-    pCombo->addItem(SmartPlaylistQuery::ToUiString((SmartPlaylistQuery::Criterium) i));
+    pCombo->addItem(SmartPlaylistQuery::ToUiString((SmartPlaylistQuery::Criterium)i));
   }
 }
 
@@ -206,9 +214,9 @@ void SmartPlaylistDlg::onCriteriumChanged(int index)
   QComboBox* pCombo = qobject_cast<QComboBox*>(sender());
 
   QComboBox* pCompareBox = pCombo->parentWidget()->findChild<QComboBox*>("Compare");
-  SmartPlaylistQuery::Statement* pStmt = (SmartPlaylistQuery::Statement*) pCombo->property("stmt").value<void*>();
+  SmartPlaylistQuery::Statement* pStmt = (SmartPlaylistQuery::Statement*)pCombo->property("stmt").value<void*>();
 
-  pStmt->m_Criterium = (SmartPlaylistQuery::Criterium) index;
+  pStmt->m_Criterium = (SmartPlaylistQuery::Criterium)index;
 
   SmartPlaylistQuery::AdjustComparison(pStmt->m_Criterium, pStmt->m_Compare);
 
@@ -219,7 +227,7 @@ void SmartPlaylistDlg::onCriteriumChanged(int index)
 void SmartPlaylistDlg::onCompareChanged(int index)
 {
   QComboBox* pCombo = qobject_cast<QComboBox*>(sender());
-  SmartPlaylistQuery::Statement* pStmt = (SmartPlaylistQuery::Statement*) pCombo->property("stmt").value<void*>();
+  SmartPlaylistQuery::Statement* pStmt = (SmartPlaylistQuery::Statement*)pCombo->property("stmt").value<void*>();
 
   pStmt->m_Compare = (SmartPlaylistQuery::Comparison)pCombo->currentData().toInt();
 }
@@ -227,7 +235,7 @@ void SmartPlaylistDlg::onCompareChanged(int index)
 void SmartPlaylistDlg::onFulfilChanged(int index)
 {
   QComboBox* pCombo = qobject_cast<QComboBox*>(sender());
-  SmartPlaylistQuery::ConditionGroup* pGroup = (SmartPlaylistQuery::ConditionGroup*) pCombo->property("group").value<void*>();
+  SmartPlaylistQuery::ConditionGroup* pGroup = (SmartPlaylistQuery::ConditionGroup*)pCombo->property("group").value<void*>();
 
   pGroup->m_Fulfil = (SmartPlaylistQuery::Fulfil)index;
 }
@@ -235,7 +243,7 @@ void SmartPlaylistDlg::onFulfilChanged(int index)
 void SmartPlaylistDlg::onValueChanged(const QString& text)
 {
   QLineEdit* pCombo = qobject_cast<QLineEdit*>(sender());
-  SmartPlaylistQuery::Statement* pStmt = (SmartPlaylistQuery::Statement*) pCombo->property("stmt").value<void*>();
+  SmartPlaylistQuery::Statement* pStmt = (SmartPlaylistQuery::Statement*)pCombo->property("stmt").value<void*>();
 
   pStmt->m_Value = text;
 }
@@ -261,7 +269,7 @@ void SmartPlaylistDlg::on_ButtonBox_clicked(QAbstractButton* button)
 void SmartPlaylistDlg::onAddStatementClicked(bool)
 {
   QPushButton* pButton = qobject_cast<QPushButton*>(sender());
-  SmartPlaylistQuery::ConditionGroup* pGroup = (SmartPlaylistQuery::ConditionGroup*) pButton->property("group").value<void*>();
+  SmartPlaylistQuery::ConditionGroup* pGroup = (SmartPlaylistQuery::ConditionGroup*)pButton->property("group").value<void*>();
 
   pGroup->m_Statements.push_back(SmartPlaylistQuery::Statement());
   SmartPlaylistQuery::Statement& stmt = *pGroup->m_Statements.rbegin();
@@ -272,8 +280,8 @@ void SmartPlaylistDlg::onAddStatementClicked(bool)
 void SmartPlaylistDlg::onRemoveSmtClicked(bool)
 {
   QPushButton* pButton = qobject_cast<QPushButton*>(sender());
-  SmartPlaylistQuery::ConditionGroup* pGroup = (SmartPlaylistQuery::ConditionGroup*) pButton->property("group").value<void*>();
-  SmartPlaylistQuery::Statement* pStmt = (SmartPlaylistQuery::Statement*) pButton->property("stmt").value<void*>();
+  SmartPlaylistQuery::ConditionGroup* pGroup = (SmartPlaylistQuery::ConditionGroup*)pButton->property("group").value<void*>();
+  SmartPlaylistQuery::Statement* pStmt = (SmartPlaylistQuery::Statement*)pButton->property("stmt").value<void*>();
 
   for (auto it = pGroup->m_Statements.begin(); it != pGroup->m_Statements.end(); ++it)
   {
@@ -292,7 +300,7 @@ void SmartPlaylistDlg::onRemoveSmtClicked(bool)
 void SmartPlaylistDlg::onAddGroupClicked(bool)
 {
   QPushButton* pButton = qobject_cast<QPushButton*>(sender());
-  SmartPlaylistQuery::ConditionGroup* pGroup = (SmartPlaylistQuery::ConditionGroup*) pButton->property("group").value<void*>();
+  SmartPlaylistQuery::ConditionGroup* pGroup = (SmartPlaylistQuery::ConditionGroup*)pButton->property("group").value<void*>();
 
   pGroup->m_SubGroups.push_back(SmartPlaylistQuery::ConditionGroup());
 
@@ -304,8 +312,8 @@ void SmartPlaylistDlg::onAddGroupClicked(bool)
 void SmartPlaylistDlg::onRemoveGroupClicked(bool)
 {
   QPushButton* pButton = qobject_cast<QPushButton*>(sender());
-  SmartPlaylistQuery::ConditionGroup* pGroup = (SmartPlaylistQuery::ConditionGroup*) pButton->property("group").value<void*>();
-  SmartPlaylistQuery::ConditionGroup* pParentGroup = (SmartPlaylistQuery::ConditionGroup*) pButton->property("parentgroup").value<void*>();
+  SmartPlaylistQuery::ConditionGroup* pGroup = (SmartPlaylistQuery::ConditionGroup*)pButton->property("group").value<void*>();
+  SmartPlaylistQuery::ConditionGroup* pParentGroup = (SmartPlaylistQuery::ConditionGroup*)pButton->property("parentgroup").value<void*>();
 
   for (auto it = pParentGroup->m_SubGroups.begin(); it != pParentGroup->m_SubGroups.end(); ++it)
   {
@@ -320,5 +328,3 @@ void SmartPlaylistDlg::onRemoveGroupClicked(bool)
 
   delete pButton->parentWidget()->parentWidget();
 }
-
-

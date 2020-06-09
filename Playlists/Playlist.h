@@ -80,7 +80,7 @@ public:
   void AdjustShuffleAfterSongRemoved(int index);
 
   virtual QMimeData* mimeData(const QModelIndexList& indexes) const override;
-  virtual Qt::ItemFlags flags(const QModelIndex &index) const override;
+  virtual Qt::ItemFlags flags(const QModelIndex& index) const override;
   virtual bool LookupSongByIndex(int index, SongInfo& song) const = 0;
 
   void SortPlaylistData(std::vector<SortPlaylistEntry>& infos, PlaylistColumn column, bool bDescending);
