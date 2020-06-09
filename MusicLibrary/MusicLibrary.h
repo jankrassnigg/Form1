@@ -83,6 +83,12 @@ public:
   void GetSongLocations(const QString& sGuid, std::deque<QString>& out_Locations) const;
   bool HasSongLocations(const QString& sGuid) const;
 
+  /// \brief Returns all album artists that are known at this time
+  void GetAllKnownArtists(std::deque<QString>& out_Artists) const;
+
+  /// \brief Returns all albums that are known at this time (for the given artist, if non-empty)
+  void GetAllKnownAlbums(std::deque<QString>& out_Albums, const QString& sArtist) const;
+
   /// \brief Checks whether the database knows the file 'sLocation' with the given last modification date. If yes, it returns false (not changed).
   bool IsLocationModified(const QString& sLocation, const QString& sLastModified) const;
   void UpdateSongDuration(const QString& sGuid, int duration);

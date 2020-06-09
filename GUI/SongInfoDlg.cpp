@@ -2,6 +2,7 @@
 #include "Config/AppConfig.h"
 #include "MusicLibrary/MusicLibrary.h"
 #include "SoundDevices/SoundDevice.h"
+#include <QCompleter>
 #include <QDialogButtonBox>
 #include <QPushButton>
 
@@ -9,6 +10,8 @@ SongInfoDlg::SongInfoDlg(std::set<QString>& selectedSongs, QWidget* parent)
     : QDialog(parent), m_SelectedSongs(selectedSongs)
 {
   setupUi(this);
+
+  AlbumLineEdit->installEventFilter(this);
 
   RatingCombo->addItem("Not rated");
   RatingCombo->addItem("1 Star");
@@ -64,6 +67,25 @@ SongInfoDlg::SongInfoDlg(std::set<QString>& selectedSongs, QWidget* parent)
 
     if (info.m_iEndOffset != m_SharedInfos.m_iEndOffset)
       m_SharedInfos.m_iEndOffset = 0;
+  }
+
+  {
+    std::deque<QString> artists;
+    MusicLibrary::GetSingleton()->GetAllKnownArtists(artists);
+
+    QStringList list;
+    list.reserve((int)artists.size());
+
+    for (const QString& s : artists)
+    {
+      list.push_back(s);
+    }
+
+    QCompleter* pCompleter = new QCompleter(list, this);
+    pCompleter->setCaseSensitivity(Qt::CaseSensitivity::CaseInsensitive);
+    pCompleter->setCompletionMode(QCompleter::CompletionMode::PopupCompletion);
+
+    ArtistLineEdit->setCompleter(pCompleter);
   }
 
   TitleLineEdit->setText(m_SharedInfos.m_sTitle);
@@ -364,4 +386,40 @@ void SongInfoDlg::ConvertTime(int curTimeMS, int& out_Minutes, int& out_Seconds,
   curTimeMS -= out_Seconds * 1000;
 
   out_Milliseconds = curTimeMS;
+}
+
+bool SongInfoDlg::eventFilter(QObject* obj, QEvent* e)
+{
+  if (obj == AlbumLineEdit)
+  {
+    if (e->type() == QEvent::Type::FocusIn)
+    {
+      const QString sArtist = ArtistLineEdit->text();
+
+      if (sArtist != m_sCheckedArtist)
+      {
+        m_sCheckedArtist = sArtist;
+
+        std::deque<QString> albums;
+        MusicLibrary::GetSingleton()->GetAllKnownAlbums(albums, sArtist);
+
+        QStringList list;
+        list.reserve((int)albums.size());
+
+        for (const QString& s : albums)
+        {
+          list.push_back(s);
+        }
+
+        QCompleter* pCompleter = new QCompleter(list, this);
+        pCompleter->setCaseSensitivity(Qt::CaseSensitivity::CaseInsensitive);
+        pCompleter->setCompletionMode(QCompleter::CompletionMode::PopupCompletion);
+        pCompleter->setFilterMode(Qt::MatchFlag::MatchContains);
+
+        AlbumLineEdit->setCompleter(pCompleter);
+      }
+    }
+  }
+
+  return QObject::eventFilter(obj, e);
 }

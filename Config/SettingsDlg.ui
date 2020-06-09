@@ -93,6 +93,14 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>ProfileDirLineEdit</tabstop>
+  <tabstop>BrowseProfileDirButton</tabstop>
+  <tabstop>ShowRatingDialog</tabstop>
+  <tabstop>MusicDirsList</tabstop>
+  <tabstop>RemoveMusicDirButton</tabstop>
+  <tabstop>AddMusicDirButton</tabstop>
+ </tabstops>
  <resources>
   <include location="../GUI/Form1.qrc"/>
  </resources>

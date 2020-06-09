@@ -686,6 +686,36 @@ bool MusicLibrary::HasSongLocations(const QString& sGuid) const
   return bHasLocations;
 }
 
+void MusicLibrary::GetAllKnownArtists(std::deque<QString>& out_Artists) const
+{
+  out_Artists.clear();
+
+  QString sql = QString("SELECT DISTINCT artist FROM music");
+
+  // can reuse the same function for this lookup
+  SqlExec(sql, RetrieveSongLocation, &out_Artists);
+}
+
+void MusicLibrary::GetAllKnownAlbums(std::deque<QString>& out_Albums, const QString& sArtist) const
+{
+  out_Albums.clear();
+
+  QString sql = QString("SELECT DISTINCT album FROM music");
+
+  if (!sArtist.isEmpty())
+  {
+    char tmp[128];
+    sqlite3_snprintf(127, tmp, "%q", sArtist.toUtf8().data());
+
+    sql.append(" where artist = '");
+    sql.append(tmp);
+    sql.append("'");
+  }
+
+  // can reuse the same function for this lookup
+  SqlExec(sql, RetrieveSongLocation, &out_Albums);
+}
+
 bool MusicLibrary::IsLocationModified(const QString& sLocation, const QString& sLastModified) const
 {
   char tmp[256];

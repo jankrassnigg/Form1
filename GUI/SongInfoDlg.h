@@ -3,8 +3,8 @@
 #include "Misc/Common.h"
 #include "Misc/Song.h"
 #include <QDialog>
-#include <ui_SongInfoDlg.h>
 #include <set>
+#include <ui_SongInfoDlg.h>
 
 class SongInfoDlg : public QDialog, Ui_SongInfoDlg
 {
@@ -34,4 +34,9 @@ private:
   std::set<QString>& m_SelectedSongs;
   SongInfo m_SharedInfos;
   std::set<QString> m_AllLocations;
+
+protected:
+  virtual bool eventFilter(QObject*, QEvent*) override;
+
+  QString m_sCheckedArtist;
 };

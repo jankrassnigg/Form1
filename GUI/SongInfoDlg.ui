@@ -464,6 +464,36 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>EditTitle</tabstop>
+  <tabstop>TitleLineEdit</tabstop>
+  <tabstop>EditArtist</tabstop>
+  <tabstop>ArtistLineEdit</tabstop>
+  <tabstop>EditAlbum</tabstop>
+  <tabstop>AlbumLineEdit</tabstop>
+  <tabstop>EditTrack</tabstop>
+  <tabstop>TrackLineEdit</tabstop>
+  <tabstop>EditDisc</tabstop>
+  <tabstop>DiscLineEdit</tabstop>
+  <tabstop>EditYear</tabstop>
+  <tabstop>YearLineEdit</tabstop>
+  <tabstop>LengthLineEdit</tabstop>
+  <tabstop>EditVolume</tabstop>
+  <tabstop>VolumeSlider</tabstop>
+  <tabstop>EditStartOffset</tabstop>
+  <tabstop>StartOffsetLineEditMin</tabstop>
+  <tabstop>StartOffsetLineEditSec</tabstop>
+  <tabstop>StartOffsetLineEditMS</tabstop>
+  <tabstop>StartOffsetNow</tabstop>
+  <tabstop>EditEndOffset</tabstop>
+  <tabstop>EndOffsetLineEditMin</tabstop>
+  <tabstop>EndOffsetLineEditSec</tabstop>
+  <tabstop>EndOffsetLineEditMS</tabstop>
+  <tabstop>EndOffsetNow</tabstop>
+  <tabstop>EditRating</tabstop>
+  <tabstop>RatingCombo</tabstop>
+  <tabstop>LocationsList</tabstop>
+ </tabstops>
  <resources>
   <include location="Form1.qrc"/>
  </resources>
