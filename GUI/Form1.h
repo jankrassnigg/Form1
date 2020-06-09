@@ -71,7 +71,7 @@ private:
   void StartSingleInstanceServer();
   virtual bool nativeEvent(const QByteArray& eventType, void* message, long* result) override;
   virtual void changeEvent(QEvent* event) override;
-  virtual void showEvent(QShowEvent *e) override;
+  virtual void showEvent(QShowEvent* e) override;
 
   int m_iSearchDelayCounter = 0;
   QScopedPointer<Sidebar> m_pSidebar;
@@ -80,6 +80,7 @@ private:
   QScopedPointer<QLocalServer> m_LocalInstanceServer;
   QScopedPointer<QAction> m_pTrayPlayPauseAction;
   QScopedPointer<QAction> m_pCopyAction;
+  bool m_bWasMaximized = false;
 
 #ifdef Q_OS_WIN32
   QScopedPointer<QWinTaskbarButton> m_TaskbarButton;

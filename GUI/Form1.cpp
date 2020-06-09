@@ -648,14 +648,30 @@ void Form1::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
   if (reason == QSystemTrayIcon::ActivationReason::DoubleClick)
   {
     show();
+
+    if (m_bWasMaximized)
+    {
+      showMaximized();
+    }
+    else
+    {
     showNormal();
+  }
   }
 }
 
 void Form1::onSingleInstanceActivation()
 {
   show();
+
+  if (m_bWasMaximized)
+  {
+    showMaximized();
+  }
+  else
+  {
   showNormal();
+  }
 }
 
 void Form1::onShowSongInfo()
@@ -887,6 +903,8 @@ void Form1::changeEvent(QEvent* event)
   {
     if (isMinimized())
     {
+      m_bWasMaximized = (((QWindowStateChangeEvent*)event)->oldState() == Qt::WindowState::WindowMaximized);
+
       hide();
     }
   }
