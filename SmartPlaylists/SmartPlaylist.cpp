@@ -24,13 +24,13 @@ SmartPlaylist::SmartPlaylist(const QString& sTitle, const QString& guid)
 
 void SmartPlaylist::Refresh(PlaylistRefreshReason reason)
 {
+  beginResetModel();
+
   if (reason == PlaylistRefreshReason::PlaylistModified || reason == PlaylistRefreshReason::PlaylistLoaded)
   {
     QString sql = m_Query.GenerateSQL();
 
     std::deque<SongInfo> songs = std::move(MusicLibrary::GetSingleton()->LookupSongs(sql, m_Query.GenerateOrderBySQL()));
-
-    beginResetModel();
 
     m_Songs.clear();
     for (const SongInfo& si : songs)

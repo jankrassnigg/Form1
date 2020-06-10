@@ -474,10 +474,7 @@ void AppState::onMediaPositionChanged()
 
     MusicLibrary::GetSingleton()->CountSongPlayed(m_ActiveSong.m_sSongGuid);
 
-    if (m_ActiveSong.m_iRating == 0)
-    {
-      emit SongRequiresRating(m_ActiveSong.m_sSongGuid);
-    }
+    emit SongRequiresRating(m_ActiveSong.m_sSongGuid);
   }
 }
 

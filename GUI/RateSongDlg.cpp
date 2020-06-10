@@ -21,7 +21,6 @@ void RateSongDlg::reject()
 
 void RateSongDlg::on_Rate0_clicked()
 {
-  emit SongRated(m_sSongGuid, 0);
   hide();
 }
 

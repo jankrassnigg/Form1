@@ -10,11 +10,6 @@ RegularPlaylist::RegularPlaylist(const QString& sTitle, const QString& guid)
 
 void RegularPlaylist::Refresh(PlaylistRefreshReason reason)
 {
-  if (reason == PlaylistRefreshReason::PlaylistLoaded)
-    return;
-
-  beginResetModel();
-  endResetModel();
 }
 
 int RegularPlaylist::GetNumSongs() const

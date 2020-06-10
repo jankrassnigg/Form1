@@ -741,6 +741,14 @@ void Form1::onRateSongs()
 void Form1::onRateSong(QString guid, int rating)
 {
   MusicLibrary::GetSingleton()->UpdateSongRating(guid, rating, true);
+
+  if (rating == 1)
+  {
+    if (AppState::GetSingleton()->GetActiveSongGuid() == guid)
+    {
+      AppState::GetSingleton()->NextSong();
+    }
+  }
 }
 
 void Form1::onBusyWorkActive(bool active)
@@ -870,6 +878,8 @@ bool Form1::RegisterGlobalHotkeys()
     return false;
   if (!RegisterHotKey(HWND(winId()), 0, MOD_WIN, VK_NUMPAD2))
     return false;
+  if (!RegisterHotKey(HWND(winId()), 0, MOD_WIN, VK_NUMPAD1))
+    return false;
 
   return true;
 }
@@ -904,6 +914,10 @@ bool Form1::nativeEvent(const QByteArray& eventType, void* message, long* result
     else if (LOWORD(msg->lParam) == MOD_WIN && HIWORD(msg->lParam) == VK_NUMPAD2)
     {
       AppState::GetSingleton()->SetVolume(AppState::GetSingleton()->GetVolume() - 5);
+    }
+    else if (LOWORD(msg->lParam) == MOD_WIN && HIWORD(msg->lParam) == VK_NUMPAD1)
+    {
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 1);
     }
   }
 
@@ -984,6 +998,9 @@ void Form1::onSongRequiresRating(QString guid)
 
   SongInfo info;
   MusicLibrary::GetSingleton()->FindSong(guid, info);
+
+  if (info.m_iRating != 0)
+    return;
 
   m_pRateSongDlg->setWindowFlag(Qt::WindowType::WindowStaysOnTopHint, true);
   m_pRateSongDlg->SetSongToRate(guid, info.m_sArtist, info.m_sTitle);
