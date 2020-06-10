@@ -68,6 +68,8 @@ public:
 
   virtual bool ContainsSong(const QString& songGuid) override;
 
+  virtual double GetTotalDuration() override;
+
 private slots:
   void onShowEditDlg();
   void onRefreshPlaylist();
@@ -76,6 +78,8 @@ private:
   friend SmartPlaylistModification;
   friend class SmartPlaylistDlg;
 
+  double m_CachedTotalDuration = 0;
+  size_t m_NumCachedSongDurations = 0;
   SmartPlaylistQuery m_Query;
   std::deque<QString> m_Songs;
   ModificationRecorder<SmartPlaylistModification, SmartPlaylist*> m_Recorder;

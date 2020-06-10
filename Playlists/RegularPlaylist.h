@@ -64,9 +64,12 @@ public:
 
   virtual bool ContainsSong(const QString& songGuid) override;
 
+  virtual double GetTotalDuration() override;
+
 private:
   friend RegularPlaylistModification;
 
+  double m_CachedTotalDuration = 0;
   std::vector<QString> m_Songs;
   ModificationRecorder<RegularPlaylistModification, RegularPlaylist*> m_Recorder;
 };

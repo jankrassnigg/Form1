@@ -2,6 +2,7 @@
 #include "Config/AppState.h"
 #include "MusicLibrary/MusicLibrary.h"
 #include <QFont>
+#include <QTimer>
 
 AllSongsPlaylist::AllSongsPlaylist()
     : Playlist("All Songs", "<all>")
@@ -13,11 +14,16 @@ void AllSongsPlaylist::Refresh(PlaylistRefreshReason reason)
   if (reason == PlaylistRefreshReason::PlaylistLoaded)
     return;
 
+  m_CachedTotalDuration = 0;
+  m_NumCachedSongDurations = 0;
+
   beginResetModel();
 
   m_AllSongs = std::move(MusicLibrary::GetSingleton()->GetAllSongGuids(true));
 
   endResetModel();
+
+  emit StatsChanged();
 }
 
 int AllSongsPlaylist::GetNumSongs() const
@@ -104,6 +110,26 @@ bool AllSongsPlaylist::LookupSongByIndex(int index, SongInfo& song) const
 bool AllSongsPlaylist::ContainsSong(const QString& songGuid)
 {
   return true;
+}
+
+double AllSongsPlaylist::GetTotalDuration()
+{
+  size_t maxCache = 100;
+
+  for (; m_NumCachedSongDurations < m_AllSongs.size(); ++m_NumCachedSongDurations)
+  {
+    if (--maxCache == 0)
+      break;
+
+    m_CachedTotalDuration += GetSongDuration(m_AllSongs[m_NumCachedSongDurations]);
+  }
+
+  if (m_NumCachedSongDurations < m_AllSongs.size())
+  {
+    QTimer::singleShot(10, this, [this]() { emit StatsChanged(); });
+  }
+
+  return m_CachedTotalDuration;
 }
 
 QModelIndex AllSongsPlaylist::index(int row, int column, const QModelIndex& parent /*= QModelIndex()*/) const

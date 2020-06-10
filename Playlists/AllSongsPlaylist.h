@@ -46,6 +46,11 @@ public:
 
   virtual bool ContainsSong(const QString& songGuid) override;
 
+  virtual double GetTotalDuration() override;
+
 private:
   std::deque<QString> m_AllSongs;
+
+  double m_CachedTotalDuration = 0;
+  size_t m_NumCachedSongDurations = 0;
 };

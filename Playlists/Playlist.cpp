@@ -274,6 +274,15 @@ QVariant Playlist::commonData(const QModelIndex& index, int role, const QString&
   return QVariant();
 }
 
+double Playlist::GetSongDuration(const QString& guid)
+{
+  SongInfo info;
+  if (!MusicLibrary::GetSingleton()->FindSong(guid, info))
+    return 0;
+
+  return info.m_iLengthInMS /1000.0;
+}
+
 void Playlist::Reshuffle()
 {
   m_songShuffleOrder.resize(GetNumSongs());

@@ -70,6 +70,9 @@ void RegularPlaylist::AddSong(const QString& songGuid)
   // TODO: emit proper model signals
   beginResetModel();
   endResetModel();
+
+  m_CachedTotalDuration = 0;
+  emit StatsChanged();
 }
 
 const QString RegularPlaylist::GetSongGuid(int index) const
@@ -102,6 +105,9 @@ void RegularPlaylist::RemoveSong(int index)
   // TODO: emit proper model signals
   beginResetModel();
   endResetModel();
+
+  m_CachedTotalDuration = 0;
+  emit StatsChanged();
 }
 
 bool RegularPlaylist::TryActivateSong(const QString& songGuid)
@@ -161,6 +167,19 @@ bool RegularPlaylist::LookupSongByIndex(int index, SongInfo& song) const
 bool RegularPlaylist::ContainsSong(const QString& songGuid)
 {
   return std::find(m_Songs.begin(), m_Songs.end(), songGuid) != m_Songs.end();
+}
+
+double RegularPlaylist::GetTotalDuration()
+{
+  if (m_CachedTotalDuration == 0)
+  {
+    for (const QString& guid : m_Songs)
+    {
+      m_CachedTotalDuration += GetSongDuration(guid);
+    }
+  }
+
+  return m_CachedTotalDuration;
 }
 
 QModelIndex RegularPlaylist::index(int row, int column, const QModelIndex& parent /*= QModelIndex()*/) const

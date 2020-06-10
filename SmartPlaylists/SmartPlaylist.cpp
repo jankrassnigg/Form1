@@ -6,6 +6,7 @@
 #include <QColor>
 #include <QFont>
 #include <QMenu>
+#include <QTimer>
 #include <random>
 
 SmartPlaylist::SmartPlaylist(const QString& sTitle, const QString& guid)
@@ -28,6 +29,9 @@ void SmartPlaylist::Refresh(PlaylistRefreshReason reason)
 
   if (reason == PlaylistRefreshReason::PlaylistModified || reason == PlaylistRefreshReason::PlaylistLoaded)
   {
+    m_CachedTotalDuration = 0;
+    m_NumCachedSongDurations = 0;
+
     QString sql = m_Query.GenerateSQL();
 
     std::deque<SongInfo> songs = std::move(MusicLibrary::GetSingleton()->LookupSongs(sql, m_Query.GenerateOrderBySQL()));
@@ -53,6 +57,8 @@ void SmartPlaylist::Refresh(PlaylistRefreshReason reason)
   }
 
   endResetModel();
+
+  emit StatsChanged();
 }
 
 void SmartPlaylist::ExtendContextMenu(QMenu* pMenu)
@@ -180,6 +186,26 @@ void SmartPlaylist::ShowEditor()
 bool SmartPlaylist::ContainsSong(const QString& songGuid)
 {
   return false;
+}
+
+double SmartPlaylist::GetTotalDuration()
+{
+  size_t maxCache = 100;
+
+  for (; m_NumCachedSongDurations < m_Songs.size(); ++m_NumCachedSongDurations)
+  {
+    if (--maxCache == 0)
+      break;
+
+    m_CachedTotalDuration += GetSongDuration(m_Songs[m_NumCachedSongDurations]);
+  }
+
+  if (m_NumCachedSongDurations < m_Songs.size())
+  {
+    QTimer::singleShot(10, this, [this]() { emit StatsChanged(); });
+  }
+
+  return m_CachedTotalDuration;
 }
 
 void SmartPlaylist::onShowEditDlg()

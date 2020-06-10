@@ -104,10 +104,14 @@ public:
   /// \brief Marks the playlist as modified
   void SetModified() { m_bWasModified = true; }
 
+  /// \brief Returns the duration of all songs in this list combined
+  virtual double GetTotalDuration() { return 0; }
+
 signals:
   void ActiveSongChanged(int index);
   void TitleChanged(const QString& newName);
   void LoopShuffleStateChanged();
+  void StatsChanged();
 
 protected slots:
   virtual void onActiveSongChanged();
@@ -116,6 +120,8 @@ protected:
   virtual void ReachedEnd();
 
   QVariant commonData(const QModelIndex& index, int role, const QString& sSongGuid) const;
+
+  static double GetSongDuration(const QString& guid);
 
   bool m_bWasModified = false;
   bool m_bLoop = false;

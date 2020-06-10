@@ -56,6 +56,7 @@ private slots:
   void onRefreshPlaylist();
   void onSearchTextChanged(const QString& newText);
   void onLoopShuffleStateChanged();
+  void onStatsChanged();
   void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
   void onSingleInstanceActivation();
   void onShowSongInfo();
@@ -83,6 +84,7 @@ private:
   QScopedPointer<QLocalServer> m_LocalInstanceServer;
   QScopedPointer<QAction> m_pTrayPlayPauseAction;
   QScopedPointer<QAction> m_pCopyAction;
+  QScopedPointer<QAction> m_pEditSongsAction;
   QScopedPointer<RateSongDlg> m_pRateSongDlg;
   bool m_bWasMaximized = false;
 

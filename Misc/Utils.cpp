@@ -18,11 +18,27 @@ int Clamp(int val, int minVal, int maxVal)
 
 QString ToTime(quint64 ms)
 {
-  const int minutes = ms / (60 * 1000);
-  ms -= minutes * (60 * 1000);
+  const quint64 days = ms / (24llu * 60llu * 60llu * 1000llu);
+  ms -= days * (24llu * 60llu * 60llu * 1000llu);
 
-  const int seconds = ms / 1000;
-  ms -= seconds * 1000;
+  const quint64 hours = ms / (60llu * 60llu * 1000llu);
+  ms -= hours * (60llu * 60llu * 1000llu);
+
+  const quint64 minutes = ms / (60llu * 1000llu);
+  ms -= minutes * (60llu * 1000llu);
+
+  const quint64 seconds = ms / 1000llu;
+  ms -= seconds * 1000llu;
+
+  if (days > 0)
+  {
+    return QString("%1d %2h %3m %4s").arg(days).arg(hours).arg(minutes).arg(seconds);
+  }
+
+  if (hours > 0)
+  {
+    return QString("%1:%2:%3").arg(hours).arg(minutes, 2, 10, QLatin1Char('0')).arg(seconds, 2, 10, QLatin1Char('0'));
+  }
 
   return QString("%1:%2").arg(minutes).arg(seconds, 2, 10, QLatin1Char('0'));
 }

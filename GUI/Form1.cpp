@@ -112,6 +112,14 @@ Form1::Form1()
     TracksView->addAction(m_pCopyAction.data());
   }
 
+  {
+    m_pEditSongsAction.reset(new QAction("Song Info...", this));
+    m_pEditSongsAction->setShortcut(QKeySequence("F2"));
+    connect(m_pEditSongsAction.data(), &QAction::triggered, this, &Form1::onShowSongInfo);
+
+    TracksView->addAction(m_pEditSongsAction.data());
+  }
+
   TracksView->setHeaderHidden(false);
 
   TrackPositionSlider->setStyle(new DirectJumpSliderStyle(this->style()));
@@ -147,6 +155,7 @@ Form1::Form1()
   onActiveSongChanged();
   onPlayingStateChanged();
   onNormalizedTrackPositionChanged(pAppState->GetNormalizedTrackPosition());
+
   // restore previous window layout
   {
     QSettings settings;
@@ -373,7 +382,7 @@ void Form1::onPlaylistContextMenu(const QPoint& pos)
   }
 
   menu.addAction(m_pCopyAction.data());
-  connect(menu.addAction("Song Info..."), &QAction::triggered, this, &Form1::onShowSongInfo);
+  menu.addAction(m_pEditSongsAction.data());
 
   menu.exec(TracksView->mapToGlobal(pos));
 }
@@ -581,6 +590,7 @@ void Form1::ChangeSelectedPlaylist(Playlist* pSelected)
   if (m_pSelectedPlaylist)
   {
     disconnect(m_pSelectedPlaylist, &Playlist::LoopShuffleStateChanged, this, &Form1::onLoopShuffleStateChanged);
+    disconnect(m_pSelectedPlaylist, &Playlist::StatsChanged, this, &Form1::onStatsChanged);
   }
 
   m_pSelectedPlaylist = pSelected;
@@ -590,6 +600,7 @@ void Form1::ChangeSelectedPlaylist(Playlist* pSelected)
   TracksView->setModel(m_pSelectedPlaylist);
 
   connect(m_pSelectedPlaylist, &Playlist::LoopShuffleStateChanged, this, &Form1::onLoopShuffleStateChanged);
+  connect(m_pSelectedPlaylist, &Playlist::StatsChanged, this, &Form1::onStatsChanged);
 
   QModelIndex index = m_pSidebar->index(pSelected->GetPlaylistIndex(), 0);
   PlaylistsView->blockSignals(true);
@@ -598,6 +609,7 @@ void Form1::ChangeSelectedPlaylist(Playlist* pSelected)
   PlaylistsView->blockSignals(false);
 
   onLoopShuffleStateChanged();
+  onStatsChanged();
 }
 
 void Form1::on_TracksView_doubleClicked(const QModelIndex& index)
@@ -648,6 +660,32 @@ void Form1::onLoopShuffleStateChanged()
   {
     LoopButton->setChecked(m_pSelectedPlaylist->GetLoop());
     ShuffleButton->setChecked(m_pSelectedPlaylist->GetShuffle());
+  }
+}
+
+void Form1::onStatsChanged()
+{
+  if (m_pSelectedPlaylist)
+  {
+    {
+      const int songs = m_pSelectedPlaylist->GetNumSongs();
+
+      QString text = QString("%1 Tracks").arg(songs);
+      NumSongsLabel->setText(text);
+    }
+
+    const double duration = m_pSelectedPlaylist->GetTotalDuration();
+
+    if (duration == 0)
+    {
+      PlaylistDurationLabel->setText("");
+    }
+    else
+    {
+      QString text = ToTime(static_cast<quint64>(duration * 1000.0));
+
+      PlaylistDurationLabel->setText(text);
+    }
   }
 }
 

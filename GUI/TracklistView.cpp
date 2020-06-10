@@ -29,6 +29,11 @@ void TrackListView::keyPressEvent(QKeyEvent* e)
     emit StartCurrentItem();
   }
 
+  if (e->key() == Qt::Key_F2)
+  {
+    emit EditCurrentItem();
+  }
+
   QTreeView::keyPressEvent(e);
 }
 
