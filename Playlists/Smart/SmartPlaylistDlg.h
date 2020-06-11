@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Misc/Common.h"
-#include "SmartPlaylists/SmartPlaylistQuery.h"
+#include "Playlists/Smart/SmartPlaylistQuery.h"
 #include <QDialog>
 #include <ui_SmartPlaylistDlg.h>
 

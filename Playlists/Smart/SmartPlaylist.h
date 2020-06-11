@@ -3,7 +3,7 @@
 #include "Misc/Song.h"
 #include "Misc/ModificationRecorder.h"
 #include "Playlists/Playlist.h"
-#include "SmartPlaylists/SmartPlaylistQuery.h"
+#include "Playlists/Smart/SmartPlaylistQuery.h"
 
 class SmartPlaylist;
 

@@ -1,4 +1,4 @@
-#include "Playlists/RegularPlaylist.h"
+#include "Playlists/Regular/RegularPlaylist.h"
 #include "Config/AppState.h"
 #include "Misc/Song.h"
 #include "MusicLibrary/MusicLibrary.h"

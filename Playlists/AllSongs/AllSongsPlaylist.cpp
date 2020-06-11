@@ -1,4 +1,4 @@
-#include "Playlists/AllSongsPlaylist.h"
+#include "Playlists/AllSongs/AllSongsPlaylist.h"
 #include "Config/AppState.h"
 #include "MusicLibrary/MusicLibrary.h"
 #include <QFont>

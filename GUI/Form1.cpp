@@ -4,9 +4,9 @@
 #include "Config/SettingsDlg.h"
 #include "GUI/SongInfoDlg.h"
 #include "MusicLibrary/MusicLibrary.h"
-#include "Playlists/RegularPlaylist.h"
+#include "Playlists/Regular/RegularPlaylist.h"
+#include "Playlists/Smart/SmartPlaylist.h"
 #include "RateSongDlg.h"
-#include "SmartPlaylists/SmartPlaylist.h"
 
 #include <QApplication>
 #include <QClipboard>

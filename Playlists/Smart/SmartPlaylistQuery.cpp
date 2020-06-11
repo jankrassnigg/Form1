@@ -1,5 +1,5 @@
+#include "Playlists/Smart/SmartPlaylistQuery.h"
 #include "MusicLibrary/MusicLibrary.h"
-#include "SmartPlaylists/SmartPlaylistQuery.h"
 #include <assert.h>
 
 void SmartPlaylistQuery::GetAllowedComparisons(Criterium crit, std::vector<Comparison>& out_Comparisons)

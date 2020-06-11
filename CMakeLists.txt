@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.15)
 
 message("This project can use vcpkg to find its 3rd party dependencies.")
 message("You can install vcpkg either manually or using InstallVcpkg.bat.")
@@ -77,7 +77,7 @@ set (FILES_TO_UI
   "Config/SettingsDlg.ui"
   "GUI/SongInfoDlg.ui"
   "GUI/RateSongDlg.ui"
-  "SmartPlaylists/SmartPlaylistDlg.ui"
+  "Playlists/Smart/SmartPlaylistDlg.ui"
   "MusicLibrary/SortLibraryDlg.ui"
 )
 
@@ -86,9 +86,9 @@ set (FILES_TO_MOC
   "Playlists/Playlist.h"
   "GUI/Sidebar.h"
   "Config/AppState.h"
-  "Playlists/AllSongsPlaylist.h"
-  "Playlists/RegularPlaylist.h"
-  "SmartPlaylists/SmartPlaylist.h"
+  "Playlists/AllSongs/AllSongsPlaylist.h"
+  "Playlists/Regular/RegularPlaylist.h"
+  "Playlists/Smart/SmartPlaylist.h"
   "MusicLibrary/MusicSource.h"
   "MusicLibrary/MusicSourceFolder.h"
   "MusicLibrary/MusicLibrary.h"
@@ -100,7 +100,7 @@ set (FILES_TO_MOC
   "SoundDevices/SoundDevice.h"
   # "SoundDevices/SoundDeviceQt.h"
   "SoundDevices/SoundDeviceBass.h"
-  "SmartPlaylists/SmartPlaylistDlg.h"
+  "Playlists/Smart/SmartPlaylistDlg.h"
   "MusicLibrary/SortLibraryDlg.h"
 )
 
@@ -118,9 +118,9 @@ set (OTHER_SOURCES
   "Config/AppState.cpp"
   "Misc/Utils.cpp"
   "Misc/Song.h"
-  "Playlists/AllSongsPlaylist.cpp"
-  "Playlists/RegularPlaylist.cpp"
-  "SmartPlaylists/SmartPlaylist.cpp"
+  "Playlists/AllSongs/AllSongsPlaylist.cpp"
+  "Playlists/Regular/RegularPlaylist.cpp"
+  "Playlists/Smart/SmartPlaylist.cpp"
   "MusicLibrary/MusicSource.cpp"
   "MusicLibrary/MusicSourceFolder.cpp"
   "Config/AppConfig.cpp"
@@ -135,9 +135,9 @@ set (OTHER_SOURCES
   "App.rc"
   # "SoundDevices/SoundDeviceQt.cpp"
   "SoundDevices/SoundDeviceBass.cpp"
-  "SmartPlaylists/SmartPlaylistDlg.cpp"
-  "SmartPlaylists/SmartPlaylistQuery.h"
-  "SmartPlaylists/SmartPlaylistQuery.cpp"
+  "Playlists/Smart/SmartPlaylistDlg.cpp"
+  "Playlists/Smart/SmartPlaylistQuery.h"
+  "Playlists/Smart/SmartPlaylistQuery.cpp"
   "MusicLibrary/SortLibraryDlg.cpp"
 )
 
@@ -149,12 +149,9 @@ find_path(TAGLIB_INCLUDE_DIR taglib/tag.h)
 find_library(TAGLIB_LIBRARY tag)
 include_directories(${TAGLIB_INCLUDE_DIR})
 
-add_executable(${PROJECT_NAME} WIN32
-  ${OTHER_SOURCES}
-  ${FILE_TO_QRC}
-  ${FILES_TO_MOC}
-  ${FILES_TO_UI}
-)
+add_executable(${PROJECT_NAME} WIN32)
+
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 QT5_WRAP_UI(UI_HEADERS ${FILES_TO_UI})
 QT5_WRAP_CPP(MOC_FILES TARGET ${PROJECT_NAME} ${FILES_TO_MOC})
@@ -164,11 +161,22 @@ target_sources(${PROJECT_NAME} PRIVATE ${UI_HEADERS})
 target_sources(${PROJECT_NAME} PRIVATE ${MOC_FILES})
 target_sources(${PROJECT_NAME} PRIVATE ${QRC_FILES})
 
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${OTHER_SOURCES} ${FILES_TO_MOC} ${FILES_TO_UI} ${FILE_TO_QRC})
+target_sources(${PROJECT_NAME} PRIVATE ${OTHER_SOURCES})
+target_sources(${PROJECT_NAME} PRIVATE ${FILE_TO_QRC})
+target_sources(${PROJECT_NAME} PRIVATE ${FILES_TO_MOC})
+target_sources(${PROJECT_NAME} PRIVATE ${FILES_TO_UI})
 
 source_group (QT\\MOC FILES ${MOC_FILES})
 source_group (QT\\UI FILES ${UI_HEADERS})
 source_group (QT\\QRC FILES ${QRC_FILES})
+
+set (SRCS ${OTHER_SOURCES} ${FILES_TO_MOC} ${FILES_TO_UI} ${FILE_TO_QRC})
+
+foreach(FILE ${SRCS}) 
+    get_filename_component(ABSOLUTE_PATH "${FILE}" ABSOLUTE)
+
+	source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${ABSOLUTE_PATH})
+endforeach()
 
 find_package(Sqlite3 REQUIRED)
 find_library(SQLITE3_LIBRARY sqlite3)

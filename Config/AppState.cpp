@@ -1,9 +1,9 @@
 #include "Config/AppState.h"
 #include "Config/AppConfig.h"
 #include "MusicLibrary/MusicSourceFolder.h"
-#include "Playlists/AllSongsPlaylist.h"
-#include "Playlists/RegularPlaylist.h"
-#include "SmartPlaylists/SmartPlaylist.h"
+#include "Playlists/AllSongs/AllSongsPlaylist.h"
+#include "Playlists/Regular/RegularPlaylist.h"
+#include "Playlists/Smart/SmartPlaylist.h"
 #include "SoundDevices/SoundDevice.h"
 #include <QDataStream>
 #include <QDir>

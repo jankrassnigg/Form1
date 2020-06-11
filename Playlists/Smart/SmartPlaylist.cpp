@@ -1,4 +1,4 @@
-#include "SmartPlaylists/SmartPlaylist.h"
+#include "Playlists/Smart/SmartPlaylist.h"
 #include "Config/AppState.h"
 #include "Misc/Song.h"
 #include "MusicLibrary/MusicLibrary.h"
