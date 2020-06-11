@@ -703,6 +703,9 @@ void Form1::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
     {
       showNormal();
     }
+
+    raise();
+    activateWindow();
   }
 }
 
@@ -906,17 +909,27 @@ void Form1::onStartCurrentTrack()
 
 bool Form1::RegisterGlobalHotkeys()
 {
-  if (!RegisterHotKey(HWND(winId()), 0, MOD_WIN, VK_NUMPAD5))
+  if (!RegisterHotKey(HWND(winId()), 1, MOD_WIN, VK_NUMPAD5))
     return false;
-  if (!RegisterHotKey(HWND(winId()), 0, MOD_WIN, VK_NUMPAD4))
+  if (!RegisterHotKey(HWND(winId()), 1, MOD_WIN, VK_NUMPAD4))
     return false;
-  if (!RegisterHotKey(HWND(winId()), 0, MOD_WIN, VK_NUMPAD6))
+  if (!RegisterHotKey(HWND(winId()), 1, MOD_WIN, VK_NUMPAD6))
     return false;
-  if (!RegisterHotKey(HWND(winId()), 0, MOD_WIN, VK_NUMPAD8))
+  if (!RegisterHotKey(HWND(winId()), 1, MOD_WIN, VK_NUMPAD8))
     return false;
-  if (!RegisterHotKey(HWND(winId()), 0, MOD_WIN, VK_NUMPAD2))
+  if (!RegisterHotKey(HWND(winId()), 1, MOD_WIN, VK_NUMPAD2))
     return false;
-  if (!RegisterHotKey(HWND(winId()), 0, MOD_WIN, VK_NUMPAD1))
+  if (!RegisterHotKey(HWND(winId()), 2, MOD_WIN | MOD_CONTROL, VK_NUMPAD0))
+    return false;
+  if (!RegisterHotKey(HWND(winId()), 2, MOD_WIN | MOD_CONTROL, VK_NUMPAD1))
+    return false;
+  if (!RegisterHotKey(HWND(winId()), 2, MOD_WIN | MOD_CONTROL, VK_NUMPAD2))
+    return false;
+  if (!RegisterHotKey(HWND(winId()), 2, MOD_WIN | MOD_CONTROL, VK_NUMPAD3))
+    return false;
+  if (!RegisterHotKey(HWND(winId()), 2, MOD_WIN | MOD_CONTROL, VK_NUMPAD4))
+    return false;
+  if (!RegisterHotKey(HWND(winId()), 2, MOD_WIN | MOD_CONTROL, VK_NUMPAD5))
     return false;
 
   return true;
@@ -953,9 +966,29 @@ bool Form1::nativeEvent(const QByteArray& eventType, void* message, long* result
     {
       AppState::GetSingleton()->SetVolume(AppState::GetSingleton()->GetVolume() - 5);
     }
-    else if (LOWORD(msg->lParam) == MOD_WIN && HIWORD(msg->lParam) == VK_NUMPAD1)
+    else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD0)
+    {
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 0);
+    }
+    else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD1)
     {
       onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 1);
+    }
+    else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD2)
+    {
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 2);
+    }
+    else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD3)
+    {
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 3);
+    }
+    else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD4)
+    {
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 4);
+    }
+    else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD5)
+    {
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 5);
     }
   }
 
