@@ -116,16 +116,6 @@ void RadioPlaylistDlg::on_Buttons_clicked(QAbstractButton* pButton)
       item.m_iLikelyhood = Spinboxes[i]->value();
     }
 
-    m_Playlist->SetModified();
-
-    RadioPlaylistModification mod;
-    mod.m_Settings = m_Playlist->m_Settings;
-    mod.m_Type = RadioPlaylistModification::Type::ChangeSettings;
-
-    m_Playlist->m_Recorder.AddModification(mod, m_Playlist);
-
-    m_Playlist->Refresh(PlaylistRefreshReason::PlaylistModified);
-
     accept();
     return;
   }

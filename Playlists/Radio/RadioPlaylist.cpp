@@ -9,15 +9,14 @@
 RadioPlaylist::RadioPlaylist(const QString& sTitle, const QString& guid)
     : Playlist(sTitle, guid)
 {
+  std::random_device rd;
+  m_RNG.seed(rd());
+  m_bLoop = true;
 }
 
 void RadioPlaylist::Refresh(PlaylistRefreshReason reason)
 {
-  m_Songs.resize(1);
-  const auto& songs = MusicLibrary::GetSingleton()->LookupSongs("artist='Shinedown'");
-  m_Songs[0] = songs[rand() % songs.size()].m_sSongGuid;
-
-  m_bLoop = true;
+  SelectNextSong();
 }
 
 void RadioPlaylist::ExtendContextMenu(QMenu* pMenu)
@@ -72,12 +71,6 @@ bool RadioPlaylist::CanAddSong(const QString& songGuid) const
 
 void RadioPlaylist::AddSong(const QString& songGuid)
 {
-  // TODO: emit proper model signals
-  beginResetModel();
-  endResetModel();
-
-  m_CachedTotalDuration = 0;
-  emit StatsChanged();
 }
 
 const QString RadioPlaylist::GetSongGuid(int index) const
@@ -90,14 +83,6 @@ const QString RadioPlaylist::GetSongGuid(int index) const
 
 void RadioPlaylist::RemoveSong(int index)
 {
-  Playlist::RemoveSong(index);
-
-  // TODO: emit proper model signals
-  beginResetModel();
-  endResetModel();
-
-  m_CachedTotalDuration = 0;
-  emit StatsChanged();
 }
 
 bool RadioPlaylist::TryActivateSong(const QString& songGuid)
@@ -170,19 +155,73 @@ void RadioPlaylist::onShowEditDlg()
   {
     m_bWasModified = true;
 
-    //RadioPlaylistModification mod;
-    //mod.m_Type = RadioPlaylistModification::Type::ChangeQuery;
+    RadioPlaylistModification mod;
+    mod.m_Type = RadioPlaylistModification::Type::ChangeSettings;
+    mod.m_Settings = m_Settings;
 
-    //m_Recorder.AddModification(mod, this);
+    m_Recorder.AddModification(mod, this);
 
     Refresh(PlaylistRefreshReason::PlaylistModified);
   }
 }
 
+void RadioPlaylist::SelectNextSong()
+{
+  m_Songs.resize(1);
+
+  int iMaxLikelyhood = 0;
+
+  for (size_t pl = 0; pl < m_Settings.m_Items.size(); ++pl)
+  {
+    if (!m_Settings.m_Items[pl].m_bEnabled)
+      continue;
+
+    Playlist* pPlaylist = AppState::GetSingleton()->GetPlaylistByGuid(m_Settings.m_Items[pl].m_sPlaylistGuid);
+
+    if (pPlaylist == nullptr)
+    {
+      m_Settings.m_Items[pl].m_bEnabled = false;
+      continue;
+    }
+
+    if (pPlaylist->GetNumSongs() == 0)
+      continue;
+
+    iMaxLikelyhood += m_Settings.m_Items[pl].m_iLikelyhood;
+  }
+
+  if (iMaxLikelyhood == 0)
+    return;
+
+  const int iPlaylistRng = m_RNG() % iMaxLikelyhood;
+  size_t iPlaylistIndex = 0;
+
+  iMaxLikelyhood = 0;
+  for (size_t pl = 0; pl < m_Settings.m_Items.size(); ++pl)
+  {
+    if (m_Settings.m_Items[pl].m_bEnabled)
+    {
+      iMaxLikelyhood += m_Settings.m_Items[pl].m_iLikelyhood;
+
+      if (iPlaylistRng < iMaxLikelyhood)
+      {
+        iPlaylistIndex = pl;
+        break;
+      }
+    }
+  }
+
+  Playlist* pPlaylist = AppState::GetSingleton()->GetPlaylistByGuid(m_Settings.m_Items[iPlaylistIndex].m_sPlaylistGuid);
+
+  beginResetModel();
+  m_iActiveSong = -1;
+  m_Songs[0] = pPlaylist->GetSongGuid(m_RNG() % pPlaylist->GetNumSongs());
+  endResetModel();
+}
+
 void RadioPlaylist::ReachedEnd()
 {
-  const auto& songs = MusicLibrary::GetSingleton()->LookupSongs("artist='Shinedown'");
-  m_Songs[0] = songs[rand() % songs.size()].m_sSongGuid;
+  SelectNextSong();
 
   Playlist::ReachedEnd();
 }
@@ -311,7 +350,7 @@ void RadioPlaylistSettings::Save(QDataStream& stream) const
   const int version = 1;
   stream << version;
 
-  int num = m_Items.size();
+  int num = (int)m_Items.size();
   stream << num;
 
   for (int i = 0; i < num; ++i)

@@ -312,7 +312,7 @@ void AppState::DeletePlaylist(Playlist* playlist)
 
 bool AppState::RenamePlaylist(Playlist* playlist, const QString& newName)
 {
-  Playlist* existingPlaylist = FindPlaylist(newName);
+  Playlist* existingPlaylist = FindPlaylistByName(newName);
 
   if (existingPlaylist != nullptr && existingPlaylist != playlist)
     return false;
@@ -324,11 +324,22 @@ bool AppState::RenamePlaylist(Playlist* playlist, const QString& newName)
   return true;
 }
 
-Playlist* AppState::FindPlaylist(const QString& name) const
+Playlist* AppState::FindPlaylistByName(const QString& name) const
 {
   for (auto& pl : m_AllPlaylists)
   {
     if (pl->GetTitle().compare(name, Qt::CaseInsensitive) == 0)
+      return pl.get();
+  }
+
+  return nullptr;
+}
+
+Playlist* AppState::GetPlaylistByGuid(const QString& guid) const
+{
+  for (auto& pl : m_AllPlaylists)
+  {
+    if (pl->GetGuid() == guid)
       return pl.get();
   }
 

@@ -52,7 +52,9 @@ public:
   bool RenamePlaylist(Playlist* playlist, const QString& newName);
 
   /// \brief Searches for a playlist with the given name. Case insensitive.
-  Playlist* FindPlaylist(const QString& name) const;
+  Playlist* FindPlaylistByName(const QString& name) const;
+
+  Playlist* GetPlaylistByGuid(const QString& guid) const;
 
   void SetActivePlaylist(Playlist* playlist);
   Playlist* GetActivePlaylist() const;

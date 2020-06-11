@@ -483,7 +483,7 @@ void Form1::onAddSelectionToPlaylist()
     if (!ok || name.isEmpty())
       return;
 
-    if (AppState::GetSingleton()->FindPlaylist(name) != nullptr)
+    if (AppState::GetSingleton()->FindPlaylistByName(name) != nullptr)
     {
       QMessageBox::information(this, "Playlist Name", "Another playlist already uses this name.\nPlease choose a different name.");
       goto try_again;
@@ -514,7 +514,7 @@ try_again:
   if (name.isEmpty())
     goto try_again;
 
-  if (AppState::GetSingleton()->FindPlaylist(name) != nullptr)
+  if (AppState::GetSingleton()->FindPlaylistByName(name) != nullptr)
   {
     QMessageBox::information(this, "Playlist Name", "Another playlist already uses this name.\nPlease choose a different name.");
     goto try_again;
@@ -536,7 +536,7 @@ try_again:
   if (name.isEmpty())
     goto try_again;
 
-  if (AppState::GetSingleton()->FindPlaylist(name) != nullptr)
+  if (AppState::GetSingleton()->FindPlaylistByName(name) != nullptr)
   {
     QMessageBox::information(this, "Playlist Name", "Another playlist already uses this name.\nPlease choose a different name.");
     goto try_again;
@@ -558,7 +558,7 @@ try_again:
   if (name.isEmpty())
     goto try_again;
 
-  if (AppState::GetSingleton()->FindPlaylist(name) != nullptr)
+  if (AppState::GetSingleton()->FindPlaylistByName(name) != nullptr)
   {
     QMessageBox::information(this, "Playlist Name", "Another playlist already uses this name.\nPlease choose a different name.");
     goto try_again;

@@ -3,6 +3,7 @@
 #include "Misc/ModificationRecorder.h"
 #include "Playlists/Playlist.h"
 #include <vector>
+#include <random>
 
 class RadioPlaylist;
 
@@ -90,6 +91,8 @@ private slots:
   void onShowEditDlg();
 
 private:
+  void SelectNextSong();
+
   friend RadioPlaylistModification;
   friend class RadioPlaylistDlg;
 
@@ -98,6 +101,8 @@ private:
   double m_CachedTotalDuration = 0;
   std::vector<QString> m_Songs;
   ModificationRecorder<RadioPlaylistModification, RadioPlaylist*> m_Recorder;
+
+  std::mt19937 m_RNG;
 
 protected:
   virtual void ReachedEnd() override;
