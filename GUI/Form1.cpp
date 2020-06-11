@@ -4,6 +4,7 @@
 #include "Config/SettingsDlg.h"
 #include "GUI/SongInfoDlg.h"
 #include "MusicLibrary/MusicLibrary.h"
+#include "Playlists/Radio/RadioPlaylist.h"
 #include "Playlists/Regular/RegularPlaylist.h"
 #include "Playlists/Smart/SmartPlaylist.h"
 #include "RateSongDlg.h"
@@ -392,6 +393,7 @@ void Form1::onSidebarContextMenu(const QPoint& pos)
   QMenu menu;
   connect(menu.addAction("New Playlist..."), &QAction::triggered, this, &Form1::onCreateEmptyPlaylist);
   connect(menu.addAction("New Smart Playlist..."), &QAction::triggered, this, &Form1::onCreateSmartPlaylist);
+  connect(menu.addAction("New Radio Playlist..."), &QAction::triggered, this, &Form1::onCreateRadioPlaylist);
 
   const QModelIndexList selection = PlaylistsView->selectionModel()->selectedRows();
 
@@ -543,6 +545,28 @@ try_again:
   AppState::GetSingleton()->AddPlaylist(make_unique<SmartPlaylist>(name, QUuid::createUuid().toString()), true);
 }
 
+void Form1::onCreateRadioPlaylist()
+{
+try_again:
+
+  bool ok = false;
+  QString name = QInputDialog::getText(this, "Playlist Title", "Name:", QLineEdit::Normal, QString(), &ok);
+
+  if (!ok)
+    return;
+
+  if (name.isEmpty())
+    goto try_again;
+
+  if (AppState::GetSingleton()->FindPlaylist(name) != nullptr)
+  {
+    QMessageBox::information(this, "Playlist Name", "Another playlist already uses this name.\nPlease choose a different name.");
+    goto try_again;
+  }
+
+  AppState::GetSingleton()->AddPlaylist(make_unique<RadioPlaylist>(name, QUuid::createUuid().toString()), true);
+}
+
 void Form1::onOpenSongInExplorer()
 {
   if (m_pSelectedPlaylist == nullptr)
@@ -607,6 +631,9 @@ void Form1::ChangeSelectedPlaylist(Playlist* pSelected)
   PlaylistsView->selectionModel()->select(index, QItemSelectionModel::SelectionFlag::ClearAndSelect | QItemSelectionModel::SelectionFlag::Rows);
   PlaylistsView->scrollTo(index);
   PlaylistsView->blockSignals(false);
+
+  LoopButton->setEnabled(m_pSelectedPlaylist->CanSelectLoop());
+  ShuffleButton->setEnabled(m_pSelectedPlaylist->CanSelectShuffle());
 
   onLoopShuffleStateChanged();
   onStatsChanged();

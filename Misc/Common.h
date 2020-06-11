@@ -26,7 +26,8 @@ enum class PlaylistCategory
 {
   BuiltIn_All = 0,
   Procedural = 5,
-  Regular = 10,
+  Radio = 10,
+  Regular = 15,
 };
 
 enum PlaylistColumn

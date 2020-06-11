@@ -54,6 +54,8 @@ public:
 
   virtual bool CanBeRenamed() const { return true; }
   virtual bool CanBeDeleted() const { return true; }
+  virtual bool CanSelectLoop() const { return true; }
+  virtual bool CanSelectShuffle() const { return true; }
   virtual bool CanModifySongList() const = 0;
   virtual bool CanSort() { return false; }
   virtual bool CanAddSong(const QString& songGuid) const = 0;

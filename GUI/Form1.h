@@ -52,6 +52,7 @@ private slots:
   void onAddSelectionToPlaylist();
   void onCreateEmptyPlaylist();
   void onCreateSmartPlaylist();
+  void onCreateRadioPlaylist();
   void onOpenSongInExplorer();
   void onRefreshPlaylist();
   void onSearchTextChanged(const QString& newText);

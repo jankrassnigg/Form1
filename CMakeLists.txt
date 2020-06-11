@@ -78,6 +78,7 @@ set (FILES_TO_UI
   "GUI/SongInfoDlg.ui"
   "GUI/RateSongDlg.ui"
   "Playlists/Smart/SmartPlaylistDlg.ui"
+  "Playlists/Radio/RadioPlaylistDlg.ui"
   "MusicLibrary/SortLibraryDlg.ui"
 )
 
@@ -89,6 +90,8 @@ set (FILES_TO_MOC
   "Playlists/AllSongs/AllSongsPlaylist.h"
   "Playlists/Regular/RegularPlaylist.h"
   "Playlists/Smart/SmartPlaylist.h"
+  "Playlists/Radio/RadioPlaylist.h"
+  "Playlists/Radio/RadioPlaylistDlg.h"
   "MusicLibrary/MusicSource.h"
   "MusicLibrary/MusicSourceFolder.h"
   "MusicLibrary/MusicLibrary.h"
@@ -121,6 +124,8 @@ set (OTHER_SOURCES
   "Playlists/AllSongs/AllSongsPlaylist.cpp"
   "Playlists/Regular/RegularPlaylist.cpp"
   "Playlists/Smart/SmartPlaylist.cpp"
+  "Playlists/Radio/RadioPlaylist.cpp"
+  "Playlists/Radio/RadioPlaylistDlg.cpp"
   "MusicLibrary/MusicSource.cpp"
   "MusicLibrary/MusicSourceFolder.cpp"
   "Config/AppConfig.cpp"

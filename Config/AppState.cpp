@@ -2,6 +2,7 @@
 #include "Config/AppConfig.h"
 #include "MusicLibrary/MusicSourceFolder.h"
 #include "Playlists/AllSongs/AllSongsPlaylist.h"
+#include "Playlists/Radio/RadioPlaylist.h"
 #include "Playlists/Regular/RegularPlaylist.h"
 #include "Playlists/Smart/SmartPlaylist.h"
 #include "SoundDevices/SoundDevice.h"
@@ -677,12 +678,21 @@ void AppState::LoadPlaylist(const QString& sPath)
       pPlaylist = newPlaylist.get();
       AddPlaylist(std::move(newPlaylist), false);
     }
-
-    if (sFactory == "SmartPlaylist")
+    else if (sFactory == "SmartPlaylist")
     {
       unique_ptr<SmartPlaylist> newPlaylist = make_unique<SmartPlaylist>(sTitle, sGuid);
       pPlaylist = newPlaylist.get();
       AddPlaylist(std::move(newPlaylist), false);
+    }
+    else if (sFactory == "RadioPlaylist")
+    {
+      unique_ptr<RadioPlaylist> newPlaylist = make_unique<RadioPlaylist>(sTitle, sGuid);
+      pPlaylist = newPlaylist.get();
+      AddPlaylist(std::move(newPlaylist), false);
+    }
+    else
+    {
+      assert(false && "Not implemented");
     }
   }
 
