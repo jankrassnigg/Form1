@@ -3,6 +3,9 @@
 #include "Misc/Song.h"
 #include "MusicLibrary/MusicLibrary.h"
 
+#include "RadioPlaylistDlg.h"
+#include <QMenu>
+
 RadioPlaylist::RadioPlaylist(const QString& sTitle, const QString& guid)
     : Playlist(sTitle, guid)
 {
@@ -15,6 +18,11 @@ void RadioPlaylist::Refresh(PlaylistRefreshReason reason)
   m_Songs[0] = songs[rand() % songs.size()].m_sSongGuid;
 
   m_bLoop = true;
+}
+
+void RadioPlaylist::ExtendContextMenu(QMenu* pMenu)
+{
+  connect(pMenu->addAction("Edit Radio Playlist..."), &QAction::triggered, this, &RadioPlaylist::onShowEditDlg);
 }
 
 int RadioPlaylist::GetNumSongs() const
@@ -154,6 +162,23 @@ double RadioPlaylist::GetTotalDuration()
   return m_CachedTotalDuration;
 }
 
+void RadioPlaylist::onShowEditDlg()
+{
+  RadioPlaylistDlg dlg(this, nullptr);
+
+  if (dlg.exec() == QDialog::Accepted)
+  {
+    m_bWasModified = true;
+
+    //RadioPlaylistModification mod;
+    //mod.m_Type = RadioPlaylistModification::Type::ChangeQuery;
+
+    //m_Recorder.AddModification(mod, this);
+
+    Refresh(PlaylistRefreshReason::PlaylistModified);
+  }
+}
+
 void RadioPlaylist::ReachedEnd()
 {
   const auto& songs = MusicLibrary::GetSingleton()->LookupSongs("artist='Shinedown'");
@@ -208,12 +233,28 @@ void RadioPlaylistModification::Apply(RadioPlaylist* pContext) const
     pContext->m_sTitle = m_sIdentifier;
     return;
   }
+
+  if (m_Type == Type::ChangeSettings)
+  {
+    pContext->m_Settings = m_Settings;
+    return;
+  }
 }
 
 void RadioPlaylistModification::Save(QDataStream& stream) const
 {
   stream << (int)m_Type;
   stream << m_sIdentifier;
+
+  if (m_Type == Type::RenamePlaylist)
+  {
+    stream << m_sIdentifier;
+  }
+
+  if (m_Type == Type::ChangeSettings)
+  {
+    m_Settings.Save(stream);
+  }
 }
 
 void RadioPlaylistModification::Load(QDataStream& stream)
@@ -222,6 +263,16 @@ void RadioPlaylistModification::Load(QDataStream& stream)
   stream >> type;
   m_Type = (Type)type;
   stream >> m_sIdentifier;
+
+  if (m_Type == Type::RenamePlaylist)
+  {
+    stream >> m_sIdentifier;
+  }
+
+  if (m_Type == Type::ChangeSettings)
+  {
+    m_Settings.Load(stream);
+  }
 }
 
 void RadioPlaylistModification::Coalesce(ModificationRecorder<RadioPlaylistModification, RadioPlaylist*>& recorder, size_t passThroughIndex)
@@ -243,5 +294,50 @@ void RadioPlaylistModification::Coalesce(ModificationRecorder<RadioPlaylistModif
 
     break;
   }
+
+  case Type::ChangeSettings:
+  {
+    recorder.InvalidatePrevious(passThroughIndex, [this](const RadioPlaylistModification& mod) -> bool {
+      // remove all other query changes
+      return mod.m_Type == Type::ChangeSettings;
+    });
+  }
+  break;
+  }
+}
+
+void RadioPlaylistSettings::Save(QDataStream& stream) const
+{
+  const int version = 1;
+  stream << version;
+
+  int num = m_Items.size();
+  stream << num;
+
+  for (int i = 0; i < num; ++i)
+  {
+    stream << m_Items[i].m_bEnabled;
+    stream << m_Items[i].m_sPlaylistGuid;
+    stream << m_Items[i].m_iLikelyhood;
+  }
+}
+
+void RadioPlaylistSettings::Load(QDataStream& stream)
+{
+  int version = 0;
+  stream >> version;
+
+  if (version != 1)
+    return;
+
+  int num = 0;
+  stream >> num;
+  m_Items.resize(num);
+
+  for (int i = 0; i < num; ++i)
+  {
+    stream >> m_Items[i].m_bEnabled;
+    stream >> m_Items[i].m_sPlaylistGuid;
+    stream >> m_Items[i].m_iLikelyhood;
   }
 }

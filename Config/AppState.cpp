@@ -693,6 +693,7 @@ void AppState::LoadPlaylist(const QString& sPath)
     else
     {
       assert(false && "Not implemented");
+      return;
     }
   }
 

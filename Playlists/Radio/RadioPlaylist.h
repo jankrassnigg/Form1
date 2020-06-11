@@ -2,8 +2,24 @@
 
 #include "Misc/ModificationRecorder.h"
 #include "Playlists/Playlist.h"
+#include <vector>
 
 class RadioPlaylist;
+
+struct RadioPlaylistItem
+{
+  bool m_bEnabled = false;
+  QString m_sPlaylistGuid;
+  int m_iLikelyhood = 0;
+};
+
+struct RadioPlaylistSettings
+{
+  void Save(QDataStream& stream) const;
+  void Load(QDataStream& stream);
+
+  std::vector<RadioPlaylistItem> m_Items;
+};
 
 struct RadioPlaylistModification : public Modification
 {
@@ -11,10 +27,12 @@ struct RadioPlaylistModification : public Modification
   {
     None,
     RenamePlaylist,
+    ChangeSettings,
   };
 
   Type m_Type = Type::None;
   QString m_sIdentifier;
+  RadioPlaylistSettings m_Settings;
 
   void Apply(RadioPlaylist* pContext) const;
   void Save(QDataStream& stream) const;
@@ -41,6 +59,8 @@ public:
   virtual QString GetFactoryName() const override;
   virtual void Refresh(PlaylistRefreshReason reason) override;
 
+  virtual void ExtendContextMenu(QMenu* pMenu) override;
+
   virtual int GetNumSongs() const override;
   virtual QIcon GetIcon() const override;
   virtual PlaylistCategory GetCategory() override;
@@ -66,8 +86,14 @@ public:
 
   virtual double GetTotalDuration() override;
 
+private slots:
+  void onShowEditDlg();
+
 private:
   friend RadioPlaylistModification;
+  friend class RadioPlaylistDlg;
+
+  RadioPlaylistSettings m_Settings;
 
   double m_CachedTotalDuration = 0;
   std::vector<QString> m_Songs;
@@ -75,5 +101,4 @@ private:
 
 protected:
   virtual void ReachedEnd() override;
-
 };
