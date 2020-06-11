@@ -16,7 +16,11 @@ RadioPlaylist::RadioPlaylist(const QString& sTitle, const QString& guid)
 
 void RadioPlaylist::Refresh(PlaylistRefreshReason reason)
 {
-  SelectNextSong();
+  if (reason == PlaylistRefreshReason::PlaylistLoaded)
+  {
+    m_iActiveSong = -1;
+    CreateSongList();
+  }
 }
 
 void RadioPlaylist::ExtendContextMenu(QMenu* pMenu)
@@ -165,10 +169,45 @@ void RadioPlaylist::onShowEditDlg()
   }
 }
 
-void RadioPlaylist::SelectNextSong()
+void RadioPlaylist::CreateSongList()
 {
-  m_Songs.resize(1);
+  std::vector<QString> oldSongs = std::move(m_Songs);
 
+  m_Songs.clear();
+  m_Songs.reserve(10);
+
+  beginResetModel();
+  m_iActiveSong = -1;
+
+  for (size_t i = 0; i < 100; ++i)
+  {
+    const QString guid = PickSong();
+
+    // try to prevent picking the same songs as previously
+    // this can't work, if the source playlists have too few different songs
+    // that's why we only retry a couple of times
+
+    if (std::find(m_Songs.begin(), m_Songs.end(), guid) != m_Songs.end())
+      continue;
+    if (std::find(oldSongs.begin(), oldSongs.end(), guid) != oldSongs.end())
+      continue;
+
+    // neither in the new list, nor the old one -> use this song
+    m_Songs.push_back(guid);
+
+    // we only want a short list
+    if (m_Songs.size() >= 10)
+      break;
+  }
+
+  endResetModel();
+
+  m_CachedTotalDuration = 0;
+  emit StatsChanged();
+}
+
+QString RadioPlaylist::PickSong()
+{
   int iMaxLikelyhood = 0;
 
   for (size_t pl = 0; pl < m_Settings.m_Items.size(); ++pl)
@@ -191,7 +230,7 @@ void RadioPlaylist::SelectNextSong()
   }
 
   if (iMaxLikelyhood == 0)
-    return;
+    return "";
 
   const int iPlaylistRng = m_RNG() % iMaxLikelyhood;
   size_t iPlaylistIndex = 0;
@@ -213,15 +252,12 @@ void RadioPlaylist::SelectNextSong()
 
   Playlist* pPlaylist = AppState::GetSingleton()->GetPlaylistByGuid(m_Settings.m_Items[iPlaylistIndex].m_sPlaylistGuid);
 
-  beginResetModel();
-  m_iActiveSong = -1;
-  m_Songs[0] = pPlaylist->GetSongGuid(m_RNG() % pPlaylist->GetNumSongs());
-  endResetModel();
+  return pPlaylist->GetSongGuid(m_RNG() % pPlaylist->GetNumSongs());
 }
 
 void RadioPlaylist::ReachedEnd()
 {
-  SelectNextSong();
+  CreateSongList();
 
   Playlist::ReachedEnd();
 }

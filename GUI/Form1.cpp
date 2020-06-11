@@ -611,6 +611,9 @@ void Form1::onSelectedPlaylistChanged(const QItemSelection& selected, const QIte
 
 void Form1::ChangeSelectedPlaylist(Playlist* pSelected)
 {
+  if (m_pSelectedPlaylist == pSelected)
+    return;
+
   if (m_pSelectedPlaylist)
   {
     disconnect(m_pSelectedPlaylist, &Playlist::LoopShuffleStateChanged, this, &Form1::onLoopShuffleStateChanged);

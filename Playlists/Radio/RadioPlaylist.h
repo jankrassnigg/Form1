@@ -91,7 +91,8 @@ private slots:
   void onShowEditDlg();
 
 private:
-  void SelectNextSong();
+  void CreateSongList();
+  QString PickSong();
 
   friend RadioPlaylistModification;
   friend class RadioPlaylistDlg;
