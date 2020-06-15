@@ -219,7 +219,7 @@ QVariant Playlist::commonData(const QModelIndex& index, int role, const QString&
     if (!LookupSongByIndex(index.row(), song))
     {
       if (index.column() == 1)
-        return "<Invalid Song>";
+        return "<Missing Song>";
       else
         return QVariant();
     }

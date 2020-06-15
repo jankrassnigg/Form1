@@ -142,6 +142,30 @@ void RegularPlaylist::Save(QDataStream& stream)
     m_Recorder.AddModification(mod, this);
   }
 
+  std::map<QString, QString> guidToDesc;
+  for (const QString& songGuid : m_Songs)
+  {
+    SongInfo info;
+    if (MusicLibrary::GetSingleton()->FindSong(songGuid, info))
+    {
+      guidToDesc[songGuid] = QString("%1 - %2").arg(info.m_sTitle).arg(info.m_sArtist);
+    }
+    else if (m_GuidToDesc.find(songGuid) != m_GuidToDesc.end())
+    {
+      guidToDesc[songGuid] = m_GuidToDesc[songGuid];
+    }
+  }
+
+  for (auto it : guidToDesc)
+  {
+    RegularPlaylistModification mod;
+    mod.m_Type = RegularPlaylistModification::Type::SetSongDescription;
+    mod.m_sIdentifier = it.first;
+    mod.m_sMisc = it.second;
+
+    m_Recorder.AddModification(mod, this);
+  }
+
   m_Recorder.CoalesceEntries();
   m_Recorder.Save(stream);
 }
@@ -209,7 +233,22 @@ QVariant RegularPlaylist::data(const QModelIndex& index, int role /*= Qt::Displa
 {
   const QString& songGuid = m_Songs[index.row()];
 
-  return commonData(index, role, songGuid);
+  QVariant var = commonData(index, role, songGuid);
+
+  if (role == Qt::DisplayRole && index.column() == 1)
+  {
+    if (var.toString() == "<Missing Song>")
+    {
+      QString guid = m_Songs[index.row()];
+      auto it = m_GuidToDesc.find(guid);
+      if (it != m_GuidToDesc.end())
+      {
+        return QString("Missing: %1").arg(it->second);
+      }
+    }
+  }
+
+  return var;
 }
 
 void RegularPlaylist::sort(int column, Qt::SortOrder order /*= Qt::AscendingOrder*/)
@@ -278,12 +317,23 @@ void RegularPlaylistModification::Apply(RegularPlaylist* pContext) const
     pContext->m_sTitle = m_sIdentifier;
     return;
   }
+
+  if (m_Type == Type::SetSongDescription)
+  {
+    pContext->m_GuidToDesc[m_sIdentifier] = m_sMisc;
+    return;
+  }
 }
 
 void RegularPlaylistModification::Save(QDataStream& stream) const
 {
   stream << (int)m_Type;
   stream << m_sIdentifier;
+
+  if (m_Type == Type::SetSongDescription)
+  {
+    stream << m_sMisc;
+  }
 }
 
 void RegularPlaylistModification::Load(QDataStream& stream)
@@ -292,6 +342,11 @@ void RegularPlaylistModification::Load(QDataStream& stream)
   stream >> type;
   m_Type = (Type)type;
   stream >> m_sIdentifier;
+
+  if (m_Type == Type::SetSongDescription)
+  {
+    stream >> m_sMisc;
+  }
 }
 
 void RegularPlaylistModification::Coalesce(ModificationRecorder<RegularPlaylistModification, RegularPlaylist*>& recorder, size_t passThroughIndex)
@@ -318,6 +373,20 @@ void RegularPlaylistModification::Coalesce(ModificationRecorder<RegularPlaylistM
       if (mod.m_sIdentifier == this->m_sIdentifier)
       {
         return mod.m_Type == Type::AddSong || mod.m_Type == Type::RemoveSong;
+      }
+
+      return false;
+    });
+
+    break;
+  }
+
+  case Type::SetSongDescription:
+  {
+    recorder.InvalidatePrevious(passThroughIndex, [this](const RegularPlaylistModification& mod) -> bool {
+      if (mod.m_sModGuid == this->m_sModGuid)
+      {
+        return true;
       }
 
       return false;

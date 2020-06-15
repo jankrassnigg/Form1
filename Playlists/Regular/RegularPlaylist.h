@@ -13,10 +13,12 @@ struct RegularPlaylistModification : public Modification
     AddSong,
     RemoveSong,
     RenamePlaylist,
+    SetSongDescription,
   };
 
   Type m_Type = Type::None;
   QString m_sIdentifier;
+  QString m_sMisc;
 
   void Apply(RegularPlaylist* pContext) const;
   void Save(QDataStream& stream) const;
@@ -71,5 +73,6 @@ private:
 
   double m_CachedTotalDuration = 0;
   std::vector<QString> m_Songs;
+  std::map<QString, QString> m_GuidToDesc;
   ModificationRecorder<RegularPlaylistModification, RegularPlaylist*> m_Recorder;
 };
