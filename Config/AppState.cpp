@@ -474,6 +474,16 @@ void AppState::onMediaError()
   m_pActivePlaylist->ActivateNextSong();
 }
 
+void AppState::CountCurrentSongAsPlayed()
+{
+  if (m_bCountedSongAsPlayed)
+    return;
+
+  m_bCountedSongAsPlayed = true;
+
+  MusicLibrary::GetSingleton()->CountSongPlayed(m_ActiveSong.m_sSongGuid);
+}
+
 void AppState::onMediaPositionChanged()
 {
   m_fNormalizedTrackPosition = SoundDevice::GetSingleton()->GetPosition() / SoundDevice::GetSingleton()->GetDuration();
@@ -482,9 +492,7 @@ void AppState::onMediaPositionChanged()
 
   if (!m_bCountedSongAsPlayed && m_fNormalizedTrackPosition > 0.7)
   {
-    m_bCountedSongAsPlayed = true;
-
-    MusicLibrary::GetSingleton()->CountSongPlayed(m_ActiveSong.m_sSongGuid);
+    CountCurrentSongAsPlayed();
 
     emit SongRequiresRating(m_ActiveSong.m_sSongGuid);
   }

@@ -16,7 +16,8 @@ RadioPlaylist::RadioPlaylist(const QString& sTitle, const QString& guid)
 
 void RadioPlaylist::Refresh(PlaylistRefreshReason reason)
 {
-  if (reason == PlaylistRefreshReason::PlaylistLoaded)
+  if (reason == PlaylistRefreshReason::PlaylistLoaded ||
+    reason == PlaylistRefreshReason::PlaylistModified)
   {
     m_iActiveSong = -1;
     CreateSongList();

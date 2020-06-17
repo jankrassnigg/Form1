@@ -813,9 +813,11 @@ void Form1::onRateSong(QString guid, int rating)
 {
   MusicLibrary::GetSingleton()->UpdateSongRating(guid, rating, true);
 
-  if (rating == 1)
+  if (AppState::GetSingleton()->GetActiveSongGuid() == guid)
   {
-    if (AppState::GetSingleton()->GetActiveSongGuid() == guid)
+    AppState::GetSingleton()->CountCurrentSongAsPlayed();
+
+    if (rating == 1)
     {
       AppState::GetSingleton()->NextSong();
     }

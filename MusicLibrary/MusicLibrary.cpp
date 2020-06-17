@@ -847,9 +847,16 @@ void MusicLibrary::UpdateSongRating(const QString& sGuid, int value, bool bRecor
     mod.m_Type = LibraryModification::Type::SetRating;
     mod.m_iData = value;
 
-    std::lock_guard<std::mutex> lock(m_RecorderMutex);
+    {
+      std::lock_guard<std::mutex> lock(m_RecorderMutex);
 
-    m_Recorder.AddModification(mod, this);
+      m_Recorder.AddModification(mod, this);
+    }
+
+    if (AppState::GetSingleton()->GetActiveSongGuid() == sGuid)
+    {
+      AppState::GetSingleton()->CountCurrentSongAsPlayed();
+    }
   }
   else
   {

@@ -62,6 +62,8 @@ public:
 
   const QString& GetActiveSongGuid() const { return m_ActiveSong.m_sSongGuid; }
 
+  void CountCurrentSongAsPlayed();
+
   void AddMusicSource(unique_ptr<MusicSource>&& musicSource);
   const vector<unique_ptr<MusicSource>>& GetAllMusicSources() const { return m_MusicSources; }
 
