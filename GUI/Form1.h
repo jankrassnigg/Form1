@@ -63,11 +63,13 @@ private slots:
   void onShowSongInfo();
   void onRefreshSelectedPlaylist();
   void onRateSongs();
-  void onRateSong(QString guid, int rating);
+  void onRateSong(QString guid, int rating, bool skipAfterRating);
   void onBusyWorkActive(bool active);
   void onSaveUserStateTimer();
   void onCopyActionTriggered(bool);
   void onSongRequiresRating(QString guid);
+  bool ShowSongRatingDialog(QString guid, bool skipAfterRating);
+  void RateAndSkipSong(QString guid);
 
 private:
   void ChangeSelectedPlaylist(Playlist* playlist);

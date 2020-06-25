@@ -10,12 +10,12 @@ class RateSongDlg : public QDialog, Ui_RateSongDlg
 public:
   RateSongDlg();
 
-  void SetSongToRate(const QString& sGuid, const QString& sArtist, const QString& sTitle);
+  void SetSongToRate(const QString& sGuid, const QString& sArtist, const QString& sTitle, bool skipAfterRating);
 
   virtual void reject() override;
 
 signals:
-  void SongRated(QString guid, int rating);
+  void SongRated(QString guid, int rating, bool skipSong);
 
 private slots:
   void on_Rate0_clicked();
@@ -27,4 +27,5 @@ private slots:
 
 private:
   QString m_sSongGuid;
+  bool m_bSkipAfterRating = false;
 };

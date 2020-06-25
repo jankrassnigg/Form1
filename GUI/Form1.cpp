@@ -809,7 +809,7 @@ void Form1::onRateSongs()
   }
 }
 
-void Form1::onRateSong(QString guid, int rating)
+void Form1::onRateSong(QString guid, int rating, bool skipAfterRating)
 {
   MusicLibrary::GetSingleton()->UpdateSongRating(guid, rating, true);
 
@@ -817,7 +817,7 @@ void Form1::onRateSong(QString guid, int rating)
   {
     AppState::GetSingleton()->CountCurrentSongAsPlayed();
 
-    if (rating == 1)
+    if (rating == 1 || skipAfterRating)
     {
       AppState::GetSingleton()->NextSong();
     }
@@ -963,6 +963,8 @@ bool Form1::RegisterGlobalHotkeys()
     return false;
   if (!RegisterHotKey(HWND(winId()), 2, MOD_WIN | MOD_CONTROL, VK_NUMPAD5))
     return false;
+  if (!RegisterHotKey(HWND(winId()), 2, MOD_WIN | MOD_CONTROL, VK_NUMPAD9))
+    return false;
 
   return true;
 }
@@ -1000,27 +1002,31 @@ bool Form1::nativeEvent(const QByteArray& eventType, void* message, long* result
     }
     else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD0)
     {
-      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 0);
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 0, false);
     }
     else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD1)
     {
-      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 1);
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 1, false);
     }
     else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD2)
     {
-      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 2);
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 2, false);
     }
     else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD3)
     {
-      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 3);
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 3, false);
     }
     else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD4)
     {
-      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 4);
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 4, false);
     }
     else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD5)
     {
-      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 5);
+      onRateSong(AppState::GetSingleton()->GetActiveSongGuid(), 5, false);
+    }
+    else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD9)
+    {
+      RateAndSkipSong(AppState::GetSingleton()->GetActiveSongGuid());
     }
   }
 
@@ -1099,14 +1105,19 @@ void Form1::onSongRequiresRating(QString guid)
   if (!AppConfig::GetSingleton()->GetShowRateSongPopup())
     return;
 
+  ShowSongRatingDialog(guid, false);
+}
+
+bool Form1::ShowSongRatingDialog(QString guid, bool skipAfterRating)
+{
   SongInfo info;
   MusicLibrary::GetSingleton()->FindSong(guid, info);
 
   if (info.m_iRating != 0)
-    return;
+    return false;
 
   m_pRateSongDlg->setWindowFlag(Qt::WindowType::WindowStaysOnTopHint, true);
-  m_pRateSongDlg->SetSongToRate(guid, info.m_sArtist, info.m_sTitle);
+  m_pRateSongDlg->SetSongToRate(guid, info.m_sArtist, info.m_sTitle, skipAfterRating);
 
   const QRect screen = QApplication::primaryScreen()->availableGeometry();
   m_pRateSongDlg->updateGeometry();
@@ -1118,4 +1129,14 @@ void Form1::onSongRequiresRating(QString guid)
 
   m_pRateSongDlg->move(pos);
   m_pRateSongDlg->show();
+
+  return true;
+}
+
+void Form1::RateAndSkipSong(QString guid)
+{
+  if (!ShowSongRatingDialog(guid, true))
+  {
+    AppState::GetSingleton()->NextSong();
+  }
 }
