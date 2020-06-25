@@ -18,6 +18,8 @@ class QMenu;
 struct SortPlaylistEntry;
 
 int Clamp(int val, int minVal, int maxVal);
+double Clamp(double val, double minVal, double maxVal);
+
 QString ToTime(quint64 ms);
 int Min(int l, int r);
 int Max(int l, int r);

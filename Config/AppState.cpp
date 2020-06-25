@@ -215,6 +215,19 @@ void AppState::PrevSong()
   }
 }
 
+void AppState::FastForward(int seconds)
+{
+  if (GetCurrentPlayingState() == PlayingState::None)
+    return;
+
+  auto dev = SoundDevice::GetSingleton();
+
+  const qint64 newPos = GetCurrentSongTime() + seconds * 1000;
+  const double newPosNorm = Clamp((double)newPos  / (double)GetCurrentSongDuration(), 0.0, 1.0);
+
+  SetNormalizedTrackPosition(newPosNorm);
+}
+
 QString AppState::GetCurrentSongTitle() const
 {
   if (!m_ActiveSong.m_sSongGuid.isEmpty())

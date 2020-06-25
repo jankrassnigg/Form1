@@ -822,6 +822,8 @@ void Form1::onRateSong(QString guid, int rating, bool skipAfterRating)
       AppState::GetSingleton()->NextSong();
     }
   }
+
+  m_pRateSongDlg->hide();
 }
 
 void Form1::onBusyWorkActive(bool active)
@@ -951,6 +953,10 @@ bool Form1::RegisterGlobalHotkeys()
     return false;
   if (!RegisterHotKey(HWND(winId()), 1, MOD_WIN, VK_NUMPAD2))
     return false;
+  if (!RegisterHotKey(HWND(winId()), 1, MOD_WIN, VK_NUMPAD1))
+    return false;
+  if (!RegisterHotKey(HWND(winId()), 1, MOD_WIN, VK_NUMPAD3))
+    return false;
   if (!RegisterHotKey(HWND(winId()), 2, MOD_WIN | MOD_CONTROL, VK_NUMPAD0))
     return false;
   if (!RegisterHotKey(HWND(winId()), 2, MOD_WIN | MOD_CONTROL, VK_NUMPAD1))
@@ -999,6 +1005,14 @@ bool Form1::nativeEvent(const QByteArray& eventType, void* message, long* result
     else if (LOWORD(msg->lParam) == MOD_WIN && HIWORD(msg->lParam) == VK_NUMPAD2)
     {
       AppState::GetSingleton()->SetVolume(AppState::GetSingleton()->GetVolume() - 5);
+    }
+    else if (LOWORD(msg->lParam) == MOD_WIN && HIWORD(msg->lParam) == VK_NUMPAD1)
+    {
+      AppState::GetSingleton()->FastForward(-10);
+    }
+    else if (LOWORD(msg->lParam) == MOD_WIN && HIWORD(msg->lParam) == VK_NUMPAD3)
+    {
+      AppState::GetSingleton()->FastForward(+10);
     }
     else if (LOWORD(msg->lParam) == (MOD_WIN | MOD_CONTROL) && HIWORD(msg->lParam) == VK_NUMPAD0)
     {

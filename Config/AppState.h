@@ -35,6 +35,7 @@ public:
   void StopPlayback();
   void NextSong();
   void PrevSong();
+  void FastForward(int seconds);
 
   PlayingState GetCurrentPlayingState() const { return m_PlayingState; }
 

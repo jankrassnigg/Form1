@@ -16,6 +16,17 @@ int Clamp(int val, int minVal, int maxVal)
   return val;
 }
 
+double Clamp(double val, double minVal, double maxVal)
+{
+  if (val < minVal)
+    return minVal;
+
+  if (val > maxVal)
+    return maxVal;
+
+  return val;
+}
+
 QString ToTime(quint64 ms)
 {
   const quint64 days = ms / (24llu * 60llu * 60llu * 1000llu);
