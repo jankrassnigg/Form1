@@ -40,8 +40,8 @@ enum PlaylistColumn
   Artist,
   Album,
   TrackNumber,
-  LastPlayed,
   PlayCount,
+  LastPlayed,
   DateAdded,
   Order,
 

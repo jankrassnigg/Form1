@@ -98,10 +98,12 @@ void MusicLibrary::SaveUserState()
   if (!m_Recorder.m_bRecordedModifcations)
     return;
 
+  QString sLibFile;
+
   {
     const QString dt = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd-hh-mm-ss");
     const QString sDir = AppConfig::GetSingleton()->GetProfileDirectory() + "/library/";
-    const QString sLibFile = sDir + dt + ".f1l";
+    sLibFile = sDir + dt + ".f1l";
 
     QDir().mkdir(sDir);
 
@@ -121,6 +123,8 @@ void MusicLibrary::SaveUserState()
   }
 
   m_LibFilesToDeleteOnSave.clear();
+
+  m_LibFilesToDeleteOnSave.push_back(sLibFile);
 }
 
 void MusicLibrary::LoadUserState()

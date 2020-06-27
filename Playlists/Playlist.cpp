@@ -138,6 +138,7 @@ void Playlist::SaveToFile(const QString& sFile, bool bForce)
   }
 
   DeletePlaylistFiles();
+  AddFileToDeleteOnSave(sFile);
 
   m_bWasModified = false;
 }

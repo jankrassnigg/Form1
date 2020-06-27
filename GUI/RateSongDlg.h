@@ -12,6 +12,8 @@ public:
 
   void SetSongToRate(const QString& sGuid, const QString& sArtist, const QString& sTitle, bool skipAfterRating);
 
+  bool GetSkipSongAfterRating() const { return m_bSkipAfterRating; }
+
   virtual void reject() override;
 
 signals:

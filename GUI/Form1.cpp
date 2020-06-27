@@ -813,6 +813,11 @@ void Form1::onRateSong(QString guid, int rating, bool skipAfterRating)
 {
   MusicLibrary::GetSingleton()->UpdateSongRating(guid, rating, true);
 
+  if (!m_pRateSongDlg->isHidden() && m_pRateSongDlg->GetSkipSongAfterRating())
+  {
+    skipAfterRating = true;
+  }
+
   if (AppState::GetSingleton()->GetActiveSongGuid() == guid)
   {
     AppState::GetSingleton()->CountCurrentSongAsPlayed();
@@ -1149,6 +1154,8 @@ bool Form1::ShowSongRatingDialog(QString guid, bool skipAfterRating)
 
 void Form1::RateAndSkipSong(QString guid)
 {
+  AppState::GetSingleton()->CountCurrentSongAsPlayed();
+
   if (!ShowSongRatingDialog(guid, true))
   {
     AppState::GetSingleton()->NextSong();
