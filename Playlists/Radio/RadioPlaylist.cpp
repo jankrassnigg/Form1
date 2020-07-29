@@ -17,7 +17,7 @@ RadioPlaylist::RadioPlaylist(const QString& sTitle, const QString& guid)
 void RadioPlaylist::Refresh(PlaylistRefreshReason reason)
 {
   if (reason == PlaylistRefreshReason::PlaylistLoaded ||
-    reason == PlaylistRefreshReason::PlaylistModified)
+      reason == PlaylistRefreshReason::PlaylistModified)
   {
     m_iActiveSong = -1;
     CreateSongList();
@@ -241,12 +241,17 @@ QString RadioPlaylist::PickSong()
   {
     if (m_Settings.m_Items[pl].m_bEnabled)
     {
-      iMaxLikelyhood += m_Settings.m_Items[pl].m_iLikelyhood;
+      Playlist* pPlaylist = AppState::GetSingleton()->GetPlaylistByGuid(m_Settings.m_Items[pl].m_sPlaylistGuid);
 
-      if (iPlaylistRng < iMaxLikelyhood)
+      if (pPlaylist->GetNumSongs() > 0)
       {
-        iPlaylistIndex = pl;
-        break;
+        iMaxLikelyhood += m_Settings.m_Items[pl].m_iLikelyhood;
+
+        if (iPlaylistRng < iMaxLikelyhood)
+        {
+          iPlaylistIndex = pl;
+          break;
+        }
       }
     }
   }
