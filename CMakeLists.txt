@@ -183,7 +183,7 @@ foreach(FILE ${SRCS})
 	source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${ABSOLUTE_PATH})
 endforeach()
 
-find_package(Sqlite3 REQUIRED)
+find_package(SQLite3 REQUIRED)
 find_library(SQLITE3_LIBRARY sqlite3)
 
 target_link_libraries(${PROJECT_NAME} ${TAGLIB_LIBRARY})
