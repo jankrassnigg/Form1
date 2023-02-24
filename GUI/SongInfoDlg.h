@@ -33,7 +33,7 @@ private:
 
   std::set<QString>& m_SelectedSongs;
   SongInfo m_SharedInfos;
-  std::set<QString> m_AllLocations;
+  std::map<QString, QString> m_AllLocations; // key is the file path, value is the song guid that it belongs to
 
 protected:
   virtual bool eventFilter(QObject*, QEvent*) override;

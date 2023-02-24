@@ -86,12 +86,21 @@ bool MusicSourceFolder::UpdateFile(const QFileInfo& info)
   if (!ml->IsLocationModified(sLocation, sModDate))
     return false;
 
-  SongInfo songInfo;
-  songInfo.m_sSongGuid = ComputeFileGuid(sLocation);
+  // TODO: if the file was edited externally, we should check whether we know a song guid that maps to this location
+  // and if so, add the new file hash as a known hash of the original song guid
 
-  if (songInfo.m_sSongGuid.isEmpty())
+  QString sFileHash = ComputeFileHash(sLocation);
+
+  if (sFileHash.isEmpty())
     return false;
 
+  QString sSongGuid = ml->GetSongGuidForFileHash(sFileHash);
+
+  SongInfo songInfo;
+  ml->FindSong(sSongGuid, songInfo); // if we already know it, retrieve what we have in the database first
+
+  // if it is unknown, create it, or overwrite it with the 'new' information from file
+  songInfo.m_sSongGuid = sSongGuid;
   songInfo.ReadSongInfo(sLocation);
 
   ml->AddSongToLibrary(songInfo.m_sSongGuid, songInfo);
@@ -145,7 +154,7 @@ static void AdjustRangeID3v1(QFile& file, qint64& rangeEnd)
   rangeEnd = file.size() - 128;
 }
 
-QString MusicSourceFolder::ComputeFileGuid(const QString& sFilepath) const
+QString MusicSourceFolder::ComputeFileHash(const QString& sFilepath)
 {
   QFile file(sFilepath);
 

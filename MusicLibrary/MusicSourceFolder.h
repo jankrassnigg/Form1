@@ -27,13 +27,14 @@ public:
   virtual void Shutdown() override;
   virtual void Sort(const QString& prefix) override;
 
+  static QString ComputeFileHash(const QString& sFilepath);
+
 private:
   static void GatherFilesToSort(const QString& prefix, std::deque<CopyInfo>& cis);
   static bool ExecuteFileSort(const CopyInfo& ci, QString& outError);
   static void DeleteEmptyFolders(const QString& folder);
 
   void ParseFolder();
-  QString ComputeFileGuid(const QString& sFilepath) const;
   bool UpdateFile(const QFileInfo& info);
 
   QString m_sFolder;

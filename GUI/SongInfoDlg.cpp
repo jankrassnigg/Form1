@@ -2,6 +2,7 @@
 #include "Config/AppConfig.h"
 #include "MusicLibrary/MusicLibrary.h"
 #include "SoundDevices/SoundDevice.h"
+#include <MusicLibrary/MusicSourceFolder.h>
 #include <QCompleter>
 #include <QDialogButtonBox>
 #include <QPushButton>
@@ -32,7 +33,7 @@ SongInfoDlg::SongInfoDlg(std::set<QString>& selectedSongs, QWidget* parent)
 
     for (const QString& loc : locations)
     {
-      m_AllLocations.insert(loc);
+      m_AllLocations[loc] = guid;
     }
 
     if (info.m_sTitle != m_SharedInfos.m_sTitle)
@@ -115,9 +116,9 @@ SongInfoDlg::SongInfoDlg(std::set<QString>& selectedSongs, QWidget* parent)
     EndOffsetLineEditMS->setText(QString("%1").arg(vms));
   }
 
-  for (const QString& loc : m_AllLocations)
+  for (auto it : m_AllLocations)
   {
-    LocationsList->addItem(loc);
+    LocationsList->addItem(it.first);
   }
 }
 
@@ -206,12 +207,16 @@ void SongInfoDlg::on_ButtonBox_clicked(QAbstractButton* button)
 
     if ((partMask & (SongInfo::Part::Album | SongInfo::Part::Artist | SongInfo::Part::Title | SongInfo::Part::Track | SongInfo::Part::Year)) != 0)
     {
-      for (const QString& loc : m_AllLocations)
+      for (auto it : m_AllLocations)
       {
-        if (!SongInfo::ModifyFileTag(loc, si, partMask))
+        if (!SongInfo::ModifyFileTag(it.first, si, partMask))
         {
-          printf("Failed to modify file '%s'\n", loc.toUtf8().data());
+          printf("Failed to modify file '%s'\n", it.first.toUtf8().data());
         }
+
+        QString sNewHash = MusicSourceFolder::ComputeFileHash(it.first);
+
+        MusicLibrary::GetSingleton()->AddFileHashForSongGuid(sNewHash, it.second, true);
       }
     }
 

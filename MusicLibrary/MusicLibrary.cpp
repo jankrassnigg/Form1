@@ -47,6 +47,9 @@ void MusicLibrary::Startup(const QString& sAppDir)
 {
   Shutdown();
 
+  // make sure to load this very first
+  LoadFileToSongMappings();
+
   const QString sDatabase = sAppDir + "/library.db";
 
   if (sqlite3_open(sDatabase.toUtf8().data(), &m_pSongDatabase) != 0)
@@ -75,6 +78,7 @@ void MusicLibrary::Startup(const QString& sAppDir)
 void MusicLibrary::Shutdown()
 {
   SaveUserState();
+  SaveFileToSongMappings();
 
   m_bWorkersActive = false;
 
@@ -171,6 +175,75 @@ void MusicLibrary::LoadUserState()
   SqlExec("END TRANSACTION", nullptr, nullptr);
 }
 
+void MusicLibrary::LoadFileToSongMappings()
+{
+  const QString sDir = AppConfig::GetSingleton()->GetProfileDirectory() + "/library/";
+  QDir().mkpath(sDir);
+
+  QDirIterator dirIt(sDir, QDirIterator::Subdirectories | QDirIterator::FollowSymlinks);
+
+  bool bMoreThanOneFile = false;
+  while (dirIt.hasNext())
+  {
+    dirIt.next();
+
+    const QFileInfo fileInfo = dirIt.fileInfo();
+
+    if (fileInfo.isDir())
+      continue;
+
+    const QString sLibraryFile = fileInfo.absoluteFilePath();
+
+    if (!sLibraryFile.endsWith(".f1h", Qt::CaseInsensitive))
+      continue;
+
+    LoadFileMappingFile(sLibraryFile);
+
+    if (bMoreThanOneFile)
+    {
+      m_HashRecorder.m_bRecordedModifcations = true;
+    }
+
+    bMoreThanOneFile = true;
+  }
+}
+
+void MusicLibrary::SaveFileToSongMappings()
+{
+  std::lock_guard<std::mutex> lock(m_HashRecorderMutex);
+
+  if (!m_HashRecorder.m_bRecordedModifcations)
+    return;
+
+  QString sLibFile;
+
+  {
+    const QString dt = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd-hh-mm-ss");
+    const QString sDir = AppConfig::GetSingleton()->GetProfileDirectory() + "/library/";
+    sLibFile = sDir + dt + ".f1h";
+
+    QDir().mkdir(sDir);
+
+    QFile file(sLibFile);
+    if (!file.open(QIODevice::OpenModeFlag::WriteOnly))
+      return;
+
+    QDataStream stream(&file);
+
+    m_HashRecorder.CoalesceEntries();
+    m_HashRecorder.Save(stream);
+  }
+
+  for (const QString& s : m_HashFilesToDeleteOnSave)
+  {
+    QFile::remove(s);
+  }
+
+  m_HashFilesToDeleteOnSave.clear();
+
+  m_HashFilesToDeleteOnSave.push_back(sLibFile);
+}
+
 void MusicLibrary::LoadLibraryFile(const QString& sPath)
 {
   QFile file(sPath);
@@ -184,6 +257,21 @@ void MusicLibrary::LoadLibraryFile(const QString& sPath)
   QDataStream stream(&file);
 
   m_Recorder.LoadAdditional(stream);
+}
+
+void MusicLibrary::LoadFileMappingFile(const QString& sPath)
+{
+  QFile file(sPath);
+  if (!file.open(QIODevice::OpenModeFlag::ReadOnly))
+    return;
+
+  std::lock_guard<std::mutex> lock(m_HashRecorderMutex);
+
+  m_HashFilesToDeleteOnSave.push_back(sPath);
+
+  QDataStream stream(&file);
+
+  m_HashRecorder.LoadAdditional(stream);
 }
 
 void MusicLibrary::onBusyWorkChanged(bool active)
@@ -217,6 +305,7 @@ void MusicLibrary::onProfileDirectoryChanged()
   }
 
   SaveUserState();
+  SaveFileToSongMappings();
 }
 
 void MusicLibrary::SqlExec(const QString& stmt, int (*callback)(void*, int, char**, char**), void* userData) const
@@ -1035,6 +1124,40 @@ void MusicLibrary::RestoreFromDatabase()
   }
 }
 
+void MusicLibrary::AddFileHashForSongGuid(const QString& sHash, const QString& sSongGuid, bool bRecord)
+{
+  if (sHash == sSongGuid)
+    return;
+
+  auto it = m_FileHashToSongGuids.find(sHash);
+  if (it == m_FileHashToSongGuids.end())
+  {
+    m_FileHashToSongGuids[sHash] = sSongGuid;
+
+    if (bRecord)
+    {
+      FileMappingModification mod;
+      mod.m_sSongGuid = sSongGuid;
+      mod.m_sFileHash = sHash;
+      mod.m_Type = FileMappingModification::Type::AddSongFileHash;
+
+      std::lock_guard<std::mutex> lock(m_HashRecorderMutex);
+      m_HashRecorder.AddModification(mod, this);
+    }
+  }
+}
+
+QString MusicLibrary::GetSongGuidForFileHash(const QString& sHash)
+{
+  auto it = m_FileHashToSongGuids.find(sHash);
+  if (it != m_FileHashToSongGuids.end())
+  {
+    return it->second;
+  }
+
+  return sHash;
+}
+
 void MusicLibrary::CleanUpLocations()
 {
   if (!m_pSongDatabase)
@@ -1221,5 +1344,61 @@ void LibraryModification::Coalesce(ModificationRecorder<LibraryModification, Mus
 
   case Type::AddPlayDate:
     break;
+
+  default:
+    assert(false && "not implemented");
+  }
+}
+
+void FileMappingModification::Apply(MusicLibrary* pContext) const
+{
+  switch (m_Type)
+  {
+  case Type::AddSongFileHash:
+    pContext->AddFileHashForSongGuid(m_sFileHash, m_sSongGuid, false);
+    break;
+
+  default:
+    assert(false && "not implemented");
+  }
+}
+
+void FileMappingModification::Save(QDataStream& stream) const
+{
+  stream << (int)m_Type;
+  stream << m_sSongGuid;
+  stream << m_sFileHash;
+}
+
+void FileMappingModification::Load(QDataStream& stream)
+{
+  int type;
+  stream >> type;
+  m_Type = (Type)type;
+  stream >> m_sSongGuid;
+  stream >> m_sFileHash;
+}
+
+void FileMappingModification::Coalesce(ModificationRecorder<FileMappingModification, MusicLibrary*>& recorder, size_t passThroughIndex)
+{
+  switch (m_Type)
+  {
+  case Type::AddSongFileHash:
+  {
+    // remove previous changes to the same file hash and same property
+
+    recorder.InvalidatePrevious(passThroughIndex, [this](const FileMappingModification& mod) -> bool
+                                {
+      if (mod.m_sFileHash == this->m_sFileHash)
+      {
+        return mod.m_Type == this->m_Type;
+      }
+
+      return false; });
+  }
+  break;
+
+  default:
+    assert(false && "not implemented");
   }
 }

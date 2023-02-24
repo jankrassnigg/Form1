@@ -849,6 +849,7 @@ void Form1::onSaveUserStateTimer()
 
   AppConfig::GetSingleton()->Save(sAppDir);
   MusicLibrary::GetSingleton()->SaveUserState();
+  MusicLibrary::GetSingleton()->SaveFileToSongMappings();
   AppState::GetSingleton()->SaveAllPlaylists(false);
   AppState::GetSingleton()->SaveUserState();
 

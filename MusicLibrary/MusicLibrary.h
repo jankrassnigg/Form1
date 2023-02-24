@@ -40,6 +40,24 @@ struct LibraryModification : public Modification
   }
 };
 
+struct FileMappingModification : public Modification
+{
+  enum class Type
+  {
+    None,
+    AddSongFileHash,
+  };
+
+  Type m_Type = Type::None;
+  QString m_sSongGuid;
+  QString m_sFileHash;
+
+  void Apply(MusicLibrary* pContext) const;
+  void Save(QDataStream& stream) const;
+  void Load(QDataStream& stream);
+  void Coalesce(ModificationRecorder<FileMappingModification, MusicLibrary*>& recorder, size_t passThroughIndex);
+};
+
 class MusicLibrary : public QObject
 {
   Q_OBJECT
@@ -54,6 +72,9 @@ public:
   void Shutdown();
   void SaveUserState();
   void LoadUserState();
+
+  void LoadFileToSongMappings();
+  void SaveFileToSongMappings();
 
   void SetSearchText(const QString& text);
 
@@ -113,6 +134,10 @@ public:
   /// this will ensure the state inside the database is added to the library description (the journaling entries) again.
   void RestoreFromDatabase();
 
+  void AddFileHashForSongGuid(const QString& sHash, const QString& sSongGuid, bool bRecord);
+
+  QString GetSongGuidForFileHash(const QString& sHash);
+
 signals:
   void SearchTextChanged(const QString& newText);
 
@@ -126,7 +151,8 @@ private:
   bool CreateTable();
   void SqlExec(const QString& stmt, int (*callback)(void*, int, char**, char**), void* userData) const;
 
-  void LoadLibraryFile(const QString& file);
+  void LoadLibraryFile(const QString& sPath);
+  void LoadFileMappingFile(const QString& sPath);
   void CleanupThread();
   void CleanUpLocations();
   void CleanUpSongs();
@@ -145,4 +171,9 @@ private:
 
   mutable std::mutex m_CacheMutex;
   mutable std::deque<SongInfo> m_songInfoCache;
+
+  mutable std::mutex m_HashRecorderMutex;
+  std::map<QString, QString> m_FileHashToSongGuids;
+  ModificationRecorder<FileMappingModification, MusicLibrary*> m_HashRecorder;
+  std::vector<QString> m_HashFilesToDeleteOnSave;
 };
