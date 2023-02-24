@@ -205,7 +205,7 @@ QVariant Playlist::commonData(const QModelIndex& index, int role, const QString&
     return sSongGuid;
   }
 
-  if (role == Qt::BackgroundColorRole)
+  if (role == Qt::BackgroundRole)
   {
     SongInfo song;
     if (!LookupSongByIndex(index.row(), song))

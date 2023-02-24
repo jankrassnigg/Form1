@@ -24,7 +24,7 @@ MusicSourceFolder::~MusicSourceFolder()
 void MusicSourceFolder::Startup()
 {
   m_bShutdownWorker = false;
-  m_WorkerTask = QtConcurrent::run(this, &MusicSourceFolder::ParseFolder);
+  m_WorkerTask = QtConcurrent::run(&MusicSourceFolder::ParseFolder, this);
 }
 
 void MusicSourceFolder::Shutdown()

@@ -7,9 +7,9 @@
 #include <QSystemTrayIcon>
 #include <ui_Form1.h>
 
-#ifdef Q_OS_WIN32
-#include <QWinTaskbarButton>
-#endif
+//#ifdef Q_OS_WIN32
+//#include <QWinTaskbarButton>
+//#endif
 
 class QLocalServer;
 class RateSongDlg;
@@ -76,7 +76,7 @@ private:
   bool RegisterGlobalHotkeys();
   void CreateSystemTrayIcon();
   void StartSingleInstanceServer();
-  virtual bool nativeEvent(const QByteArray& eventType, void* message, long* result) override;
+  virtual bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
   virtual void changeEvent(QEvent* event) override;
   virtual void showEvent(QShowEvent* e) override;
 
@@ -91,7 +91,7 @@ private:
   QScopedPointer<RateSongDlg> m_pRateSongDlg;
   bool m_bWasMaximized = false;
 
-#ifdef Q_OS_WIN32
-  QScopedPointer<QWinTaskbarButton> m_TaskbarButton;
-#endif
+//#ifdef Q_OS_WIN32
+//  QScopedPointer<QWinTaskbarButton> m_TaskbarButton;
+//#endif
 };

@@ -30,9 +30,9 @@
 #include <set>
 #include <windows.h>
 
-#ifdef Q_OS_WIN32
-#include <QWinTaskbarProgress>
-#endif
+// #ifdef Q_OS_WIN32
+// #include <QWinTaskbarProgress>
+// #endif
 
 class SearchLineEventFilter : public QObject
 {
@@ -66,7 +66,7 @@ public:
   int styleHint(QStyle::StyleHint hint, const QStyleOption* option = 0, const QWidget* widget = 0, QStyleHintReturn* returnData = 0) const
   {
     if (hint == QStyle::SH_Slider_AbsoluteSetButtons)
-      return (Qt::LeftButton | Qt::MidButton | Qt::RightButton);
+      return (Qt::LeftButton | Qt::MiddleButton | Qt::RightButton);
 
     return QProxyStyle::styleHint(hint, option, widget, returnData);
   }
@@ -88,10 +88,10 @@ Form1::Form1()
   setupUi(this);
   CreateSystemTrayIcon();
 
-#ifdef Q_OS_WIN32
-  m_TaskbarButton.reset(new QWinTaskbarButton());
-  m_TaskbarButton->setWindow(windowHandle());
-#endif
+  // #ifdef Q_OS_WIN32
+  //   m_TaskbarButton.reset(new QWinTaskbarButton());
+  //   m_TaskbarButton->setWindow(windowHandle());
+  // #endif
 
   MainSplitter->setStretchFactor(0, 1);
   MainSplitter->setStretchFactor(1, 3);
@@ -209,9 +209,9 @@ Form1::~Form1()
 
 void Form1::showEvent(QShowEvent* e)
 {
-#ifdef Q_OS_WIN32
-  m_TaskbarButton->setWindow(windowHandle());
-#endif
+  // #ifdef Q_OS_WIN32
+  //   m_TaskbarButton->setWindow(windowHandle());
+  // #endif
 
   QMainWindow::showEvent(e);
 }
@@ -489,7 +489,7 @@ void Form1::onAddSelectionToPlaylist()
       goto try_again;
     }
 
-    auto pl = make_unique<RegularPlaylist>(name, QUuid::createUuid().toString());
+    auto pl = std::make_unique<RegularPlaylist>(name, QUuid::createUuid().toString());
     pPlaylist = pl.get();
 
     AppState::GetSingleton()->AddPlaylist(std::move(pl), true);
@@ -520,7 +520,7 @@ try_again:
     goto try_again;
   }
 
-  AppState::GetSingleton()->AddPlaylist(make_unique<RegularPlaylist>(name, QUuid::createUuid().toString()), true);
+  AppState::GetSingleton()->AddPlaylist(std::make_unique<RegularPlaylist>(name, QUuid::createUuid().toString()), true);
 }
 
 void Form1::onCreateSmartPlaylist()
@@ -542,7 +542,7 @@ try_again:
     goto try_again;
   }
 
-  AppState::GetSingleton()->AddPlaylist(make_unique<SmartPlaylist>(name, QUuid::createUuid().toString()), true);
+  AppState::GetSingleton()->AddPlaylist(std::make_unique<SmartPlaylist>(name, QUuid::createUuid().toString()), true);
 }
 
 void Form1::onCreateRadioPlaylist()
@@ -564,7 +564,7 @@ try_again:
     goto try_again;
   }
 
-  AppState::GetSingleton()->AddPlaylist(make_unique<RadioPlaylist>(name, QUuid::createUuid().toString()), true);
+  AppState::GetSingleton()->AddPlaylist(std::make_unique<RadioPlaylist>(name, QUuid::createUuid().toString()), true);
 }
 
 void Form1::onOpenSongInExplorer()
@@ -835,12 +835,12 @@ void Form1::onBusyWorkActive(bool active)
 {
   BusyProgress->setVisible(active);
 
-#ifdef Q_OS_WIN32
-  QWinTaskbarProgress* progress = m_TaskbarButton->progress();
-  progress->setVisible(active);
-  progress->setRange(0, 0);
-  progress->setValue(0);
-#endif
+  // #ifdef Q_OS_WIN32
+  //   QWinTaskbarProgress* progress = m_TaskbarButton->progress();
+  //   progress->setVisible(active);
+  //   progress->setRange(0, 0);
+  //   progress->setValue(0);
+  // #endif
 }
 
 void Form1::onSaveUserStateTimer()
@@ -980,7 +980,7 @@ bool Form1::RegisterGlobalHotkeys()
   return true;
 }
 
-bool Form1::nativeEvent(const QByteArray& eventType, void* message, long* result)
+bool Form1::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)
 {
   Q_UNUSED(eventType);
   Q_UNUSED(result);
@@ -1078,9 +1078,12 @@ void Form1::CreateSystemTrayIcon()
 
     m_pSystemTray->setContextMenu(new QMenu());
     m_pTrayPlayPauseAction.reset(m_pSystemTray->contextMenu()->addAction("Play"));
-    connect(m_pTrayPlayPauseAction.data(), &QAction::triggered, this, [this]() { on_PlayPauseButton_clicked(); });
-    connect(m_pSystemTray->contextMenu()->addAction("Next Song"), &QAction::triggered, this, [this]() { on_NextTrackButton_clicked(); });
-    connect(m_pSystemTray->contextMenu()->addAction("Quit"), &QAction::triggered, this, [this]() { close(); });
+    connect(m_pTrayPlayPauseAction.data(), &QAction::triggered, this, [this]()
+            { on_PlayPauseButton_clicked(); });
+    connect(m_pSystemTray->contextMenu()->addAction("Next Song"), &QAction::triggered, this, [this]()
+            { on_NextTrackButton_clicked(); });
+    connect(m_pSystemTray->contextMenu()->addAction("Quit"), &QAction::triggered, this, [this]()
+            { close(); });
 
     connect(m_pSystemTray, &QSystemTrayIcon::activated, this, &Form1::onTrayIconActivated);
   }

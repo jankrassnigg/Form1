@@ -191,7 +191,7 @@ void MusicLibrary::onBusyWorkChanged(bool active)
   if (active == false)
   {
     m_bWorkersActive = true;
-    m_WorkerTask = QtConcurrent::run(this, &MusicLibrary::CleanupThread);
+    m_WorkerTask = QtConcurrent::run(&MusicLibrary::CleanupThread, this);
   }
   else
   {
@@ -363,7 +363,7 @@ bool MusicLibrary::FindSong(const QString& songGuid, SongInfo& song) const
     }
   }
 
-  QString sql = QString("SELECT *" //id, title, artist, album, disc, track, year, length, rating, volume, start, end, lastplayed, dateadded, playcount"
+  QString sql = QString("SELECT *" // id, title, artist, album, disc, track, year, length, rating, volume, start, end, lastplayed, dateadded, playcount"
                         ", strftime('%Y-%m-%d %H:%M', lastplayed, 'unixepoch', 'localtime') AS playedstring"
                         ", strftime('%Y-%m-%d %H:%M', dateadded, 'unixepoch', 'localtime') AS addedstring"
                         " FROM music WHERE id = '%1'")
@@ -401,7 +401,7 @@ std::deque<SongInfo> MusicLibrary::GetAllSongs(bool bUseSearchString) const
     {
       char tmp[128];
 
-      QStringList pieces = m_sSearchText.split(' ', QString::SkipEmptyParts);
+      QStringList pieces = m_sSearchText.split(' ', Qt::SkipEmptyParts);
 
       QString condition;
 
@@ -440,7 +440,7 @@ std::deque<QString> MusicLibrary::GetAllSongGuids(bool bUseSearchString) const
     {
       char tmp[128];
 
-      QStringList pieces = m_sSearchText.split(' ', QString::SkipEmptyParts);
+      QStringList pieces = m_sSearchText.split(' ', Qt::SkipEmptyParts);
 
       QString condition;
 
@@ -1208,14 +1208,14 @@ void LibraryModification::Coalesce(ModificationRecorder<LibraryModification, Mus
   {
     // remove previous changes to the same song and same property
 
-    recorder.InvalidatePrevious(passThroughIndex, [this](const LibraryModification& mod) -> bool {
+    recorder.InvalidatePrevious(passThroughIndex, [this](const LibraryModification& mod) -> bool
+                                {
       if (mod.m_sSongGuid == this->m_sSongGuid)
       {
         return mod.m_Type == this->m_Type;
       }
 
-      return false;
-    });
+      return false; });
   }
   break;
 

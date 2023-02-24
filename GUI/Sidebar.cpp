@@ -94,7 +94,7 @@ bool Sidebar::dropMimeData(const QMimeData *data, Qt::DropAction action, int row
     return false;
 
   QByteArray encodedData = data->data("application/songguids.form1");
-  QDataStream stream(&encodedData, QIODevice::ReadOnly);
+  QDataStream stream(&encodedData, QIODeviceBase::ReadOnly);
 
   while (!stream.atEnd())
   {

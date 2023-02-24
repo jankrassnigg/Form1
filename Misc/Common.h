@@ -4,8 +4,6 @@
 #include <memory>
 #include <vector>
 
-using namespace std;
-
 class Playlist;
 class AllSongsPlaylist;
 class MusicLibrary;

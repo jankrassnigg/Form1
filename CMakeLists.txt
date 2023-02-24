@@ -54,7 +54,7 @@ set(FORM1_VCPKG_INSTALL_QT false CACHE BOOL "")
 
 if (FORM1_VCPKG_INSTALL_QT)
 
-	set(VCPKG_INSTALL qt5-base qt5-winextras)
+	set(VCPKG_INSTALL qtbase)
 	
 	foreach(PACKAGE ${VCPKG_INSTALL})
 
@@ -70,7 +70,7 @@ endif()
 
 project(Form1 LANGUAGES CXX)
 
-find_package(Qt5 COMPONENTS Widgets Gui Core WinExtras Network REQUIRED)
+find_package(Qt6 COMPONENTS Widgets Gui Core Network REQUIRED)
 
 set (FILES_TO_UI
   "GUI/Form1.ui"
@@ -158,9 +158,9 @@ add_executable(${PROJECT_NAME} WIN32)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-QT5_WRAP_UI(UI_HEADERS ${FILES_TO_UI})
-QT5_WRAP_CPP(MOC_FILES TARGET ${PROJECT_NAME} ${FILES_TO_MOC})
-QT5_ADD_RESOURCES(QRC_FILES ${FILE_TO_QRC})
+QT6_WRAP_UI(UI_HEADERS ${FILES_TO_UI})
+QT6_WRAP_CPP(MOC_FILES TARGET ${PROJECT_NAME} ${FILES_TO_MOC})
+QT6_ADD_RESOURCES(QRC_FILES ${FILE_TO_QRC})
 
 target_sources(${PROJECT_NAME} PRIVATE ${UI_HEADERS})
 target_sources(${PROJECT_NAME} PRIVATE ${MOC_FILES})
@@ -188,7 +188,7 @@ find_library(SQLITE3_LIBRARY sqlite3)
 
 target_link_libraries(${PROJECT_NAME} ${TAGLIB_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${SQLITE3_LIBRARY})
-target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::Core Qt5::Gui Qt5::WinExtras Qt5::WinExtrasPrivate Qt5::Network bass)
+target_link_libraries(${PROJECT_NAME} Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network bass)
 
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

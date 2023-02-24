@@ -44,9 +44,9 @@ public:
   qint64 GetCurrentSongTime() const;
   qint64 GetCurrentSongDuration() const;
 
-  const vector<unique_ptr<Playlist>>& GetAllPlaylists() const;
+  const std::vector<std::unique_ptr<Playlist>>& GetAllPlaylists() const;
 
-  void AddPlaylist(unique_ptr<Playlist>&& playlist, bool bShowEditor);
+  void AddPlaylist(std::unique_ptr<Playlist>&& playlist, bool bShowEditor);
   void DeletePlaylist(Playlist* playlist);
 
   /// \brief Sets a new title for the given playlist, unless another playlist already has that name. Returns true on success.
@@ -65,8 +65,8 @@ public:
 
   void CountCurrentSongAsPlayed();
 
-  void AddMusicSource(unique_ptr<MusicSource>&& musicSource);
-  const vector<unique_ptr<MusicSource>>& GetAllMusicSources() const { return m_MusicSources; }
+  void AddMusicSource(std::unique_ptr<MusicSource>&& musicSource);
+  const std::vector<std::unique_ptr<MusicSource>>& GetAllMusicSources() const { return m_MusicSources; }
 
   void BeginBusyWork();
   void EndBusyWork();
@@ -118,10 +118,10 @@ private:
   int m_iSongVolumeAdjust = 0;
   bool m_bCountedSongAsPlayed = false;
 
-  vector<unique_ptr<Playlist>> m_AllPlaylists;
+  std::vector<std::unique_ptr<Playlist>> m_AllPlaylists;
   Playlist* m_pActivePlaylist = nullptr;
-  vector<unique_ptr<MusicSource>> m_MusicSources;
-  vector<QString> m_SongHistory;
+  std::vector<std::unique_ptr<MusicSource>> m_MusicSources;
+  std::vector<QString> m_SongHistory;
 
   SongInfo m_ActiveSong;
   QAtomicInt m_BusyWorkCounter;

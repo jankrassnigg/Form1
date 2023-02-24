@@ -104,7 +104,7 @@ void SettingsDlg::onSortDirClicked()
 
   const auto& sources = AppConfig::GetSingleton()->GetAllMusicSources();
 
-  for (const unique_ptr<MusicSource>& ptr : AppState::GetSingleton()->GetAllMusicSources())
+  for (const std::unique_ptr<MusicSource>& ptr : AppState::GetSingleton()->GetAllMusicSources())
   {
     ptr->Sort(sDir);
   }

@@ -25,7 +25,7 @@ AppState::AppState()
   connect(AppConfig::GetSingleton(), &AppConfig::MusicSourceAdded, this, &AppState::onMusicSourceAdded);
   connect(AppConfig::GetSingleton(), &AppConfig::ProfileDirectoryChanged, this, &AppState::onProfileDirectoryChanged);
 
-  m_AllPlaylists.push_back(make_unique<AllSongsPlaylist>());
+  m_AllPlaylists.push_back(std::make_unique<AllSongsPlaylist>());
   m_pActivePlaylist = nullptr;
 }
 
@@ -38,7 +38,7 @@ void AppState::Startup()
 
     for (const QString& path : sources)
     {
-      AddMusicSource(unique_ptr<MusicSource>(new MusicSourceFolder(path)));
+      AddMusicSource(std::unique_ptr<MusicSource>(new MusicSourceFolder(path)));
     }
   }
 
@@ -261,17 +261,18 @@ qint64 AppState::GetCurrentSongDuration() const
   return (qint64)(SoundDevice::GetSingleton()->GetDuration() * 1000.0);
 }
 
-const vector<unique_ptr<Playlist>>& AppState::GetAllPlaylists() const
+const std::vector<std::unique_ptr<Playlist>>& AppState::GetAllPlaylists() const
 {
   return m_AllPlaylists;
 }
 
-void AppState::AddPlaylist(unique_ptr<Playlist>&& playlist, bool bShowEditor)
+void AppState::AddPlaylist(std::unique_ptr<Playlist>&& playlist, bool bShowEditor)
 {
   Playlist* playlistPtr = playlist.get();
 
   m_AllPlaylists.push_back(std::move(playlist));
-  sort(m_AllPlaylists.begin(), m_AllPlaylists.end(), [](const unique_ptr<Playlist>& lhs, const unique_ptr<Playlist>& rhs) -> bool {
+  sort(m_AllPlaylists.begin(), m_AllPlaylists.end(), [](const std::unique_ptr<Playlist>& lhs, const std::unique_ptr<Playlist>& rhs) -> bool
+       {
     if (lhs->GetCategory() == rhs->GetCategory())
     {
       return lhs->GetTitle().compare(rhs->GetTitle(), Qt::CaseInsensitive) < 0;
@@ -438,7 +439,7 @@ void AppState::onActiveSongChanged(int index)
 
 void AppState::onMusicSourceAdded(const QString& path)
 {
-  AddMusicSource(unique_ptr<MusicSource>(new MusicSourceFolder(path)));
+  AddMusicSource(std::unique_ptr<MusicSource>(new MusicSourceFolder(path)));
 }
 
 void AppState::onMediaReady()
@@ -571,7 +572,7 @@ QString AppState::SuggestPlaylistName(const std::vector<QString>& songGuids) con
   return result;
 }
 
-void AppState::AddMusicSource(unique_ptr<MusicSource>&& musicSource)
+void AppState::AddMusicSource(std::unique_ptr<MusicSource>&& musicSource)
 {
   m_MusicSources.push_back(std::move(musicSource));
 
@@ -680,6 +681,8 @@ void AppState::LoadPlaylist(const QString& sPath)
     return;
 
   QDataStream stream(&file);
+  if (stream.atEnd())
+    return;
 
   QString sGuid, sFactory, sTitle;
   stream >> sGuid;
@@ -706,19 +709,19 @@ void AppState::LoadPlaylist(const QString& sPath)
 
     if (sFactory == "RegularPlaylist")
     {
-      unique_ptr<RegularPlaylist> newPlaylist = make_unique<RegularPlaylist>(sTitle, sGuid);
+      std::unique_ptr<RegularPlaylist> newPlaylist = std::make_unique<RegularPlaylist>(sTitle, sGuid);
       pPlaylist = newPlaylist.get();
       AddPlaylist(std::move(newPlaylist), false);
     }
     else if (sFactory == "SmartPlaylist")
     {
-      unique_ptr<SmartPlaylist> newPlaylist = make_unique<SmartPlaylist>(sTitle, sGuid);
+      std::unique_ptr<SmartPlaylist> newPlaylist = std::make_unique<SmartPlaylist>(sTitle, sGuid);
       pPlaylist = newPlaylist.get();
       AddPlaylist(std::move(newPlaylist), false);
     }
     else if (sFactory == "RadioPlaylist")
     {
-      unique_ptr<RadioPlaylist> newPlaylist = make_unique<RadioPlaylist>(sTitle, sGuid);
+      std::unique_ptr<RadioPlaylist> newPlaylist = std::make_unique<RadioPlaylist>(sTitle, sGuid);
       pPlaylist = newPlaylist.get();
       AddPlaylist(std::move(newPlaylist), false);
     }
