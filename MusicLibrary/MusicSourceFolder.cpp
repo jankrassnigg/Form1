@@ -198,7 +198,7 @@ QString MusicSourceFolder::ComputeFileHash(const QString& sFilepath)
   {
     in.readRawData(buffer, blockSize);
 
-    hash.addData(buffer, blockSize);
+    hash.addData(QByteArrayView(buffer, blockSize));
   }
 
   return hash.result().toHex();
@@ -208,7 +208,7 @@ void RemoveBrackets(QString& sentence)
 {
   if (sentence.endsWith(")"))
   {
-    int idx = sentence.lastIndexOf("(");
+    auto idx = sentence.lastIndexOf("(");
 
     if (idx >= 0)
     {
@@ -218,7 +218,7 @@ void RemoveBrackets(QString& sentence)
 
   if (sentence.endsWith("]"))
   {
-    int idx = sentence.lastIndexOf("[");
+    auto idx = sentence.lastIndexOf("[");
 
     if (idx >= 0)
     {

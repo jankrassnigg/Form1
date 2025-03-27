@@ -7,6 +7,14 @@ message("")
 
 message(STATUS "EnvVar %VCPKG_ROOT% is '$ENV{VCPKG_ROOT}'")
 
+if (WIN32)
+  message(STATUS "Compiling for Windows")
+  set(VCPKGBIN "vcpkg.exe")
+  elseif (APPLE)
+  message(STATUS "Compiling for Apple")
+  set(VCPKGBIN "vcpkg")
+endif()
+
 if (CMAKE_TOOLCHAIN_FILE)
 
 	message(STATUS "CMAKE_TOOLCHAIN_FILE is already set to '${CMAKE_TOOLCHAIN_FILE}' - not going to modify it.")
@@ -21,10 +29,10 @@ else()
 		message(STATUS "EnvVar VCPKG_ROOT is specified, using that.")
 	else()
 		set(USED_VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg")
-		message(STATUS "EnvVar VCPKG_ROOT is not specified, using '${CMAKE_CURRENT_SOURCE_DIR}/vcpkg'.")
+		message(STATUS "EnvVar VCPKG_ROOT is not specified, using '${USED_VCPKG_ROOT}'.")
 	endif()
 
-	if(NOT EXISTS "${USED_VCPKG_ROOT}/vcpkg.exe" OR NOT EXISTS "${USED_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+	if(NOT EXISTS "${USED_VCPKG_ROOT}/${VCPKGBIN}" OR NOT EXISTS "${USED_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
 		message(FATAL_ERROR "vcpkg is not installed. Either install it manually and set the environment variable VCPKG_ROOT to its directory, or run InstallVcpkg.bat")
 	endif()
 
@@ -44,7 +52,7 @@ if (FORM1_VCPKG_INSTALL_3RD_PARTY_DEPS)
 	foreach(PACKAGE ${VCPKG_INSTALL})
 
 		message("Vcpgk: Installing '${PACKAGE}', this may take a while.")
-		execute_process(COMMAND "${USED_VCPKG_ROOT}/vcpkg.exe" install "${PACKAGE}:${VCPKG_TARGET_TRIPLET}" WORKING_DIRECTORY "${USED_VCPKG_ROOT}")
+		execute_process(COMMAND "${USED_VCPKG_ROOT}/${VCPKGBIN}" install "${PACKAGE}:${VCPKG_TARGET_TRIPLET}" WORKING_DIRECTORY "${USED_VCPKG_ROOT}")
 
 	endforeach()
 	
@@ -59,7 +67,7 @@ if (FORM1_VCPKG_INSTALL_QT)
 	foreach(PACKAGE ${VCPKG_INSTALL})
 
 		message("Vcpgk: Installing '${PACKAGE}', this may take a while.")
-		execute_process(COMMAND "${USED_VCPKG_ROOT}/vcpkg.exe" install "${PACKAGE}:${VCPKG_TARGET_TRIPLET}" WORKING_DIRECTORY "${USED_VCPKG_ROOT}")
+		execute_process(COMMAND "${USED_VCPKG_ROOT}/${VCPKGBIN}" install "${PACKAGE}:${VCPKG_TARGET_TRIPLET}" WORKING_DIRECTORY "${USED_VCPKG_ROOT}")
 
 	endforeach()
 	
@@ -188,10 +196,19 @@ find_library(SQLITE3_LIBRARY sqlite3)
 
 target_link_libraries(${PROJECT_NAME} ${TAGLIB_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${SQLITE3_LIBRARY})
-target_link_libraries(${PROJECT_NAME} Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network bass)
+target_link_libraries(${PROJECT_NAME} Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network)
 
+if(WIN32)
+  target_link_libraries(${PROJECT_NAME} bass)
+  
+  add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+  	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/bass.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>
+  	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/basswma.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>
+  )
+elseif(APPLE)
+  target_link_libraries(${PROJECT_NAME} libbass.dylib)
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/bass.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/basswma.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>
-)
+  add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/libbass.dylib" $<TARGET_FILE_DIR:${PROJECT_NAME}>
+  )
+endif()

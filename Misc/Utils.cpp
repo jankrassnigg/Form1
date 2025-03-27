@@ -101,13 +101,13 @@ bool SongInfo::ReadSongInfo(const QString& sFile)
     m_sTitle.remove(0, 2);
   }
 
-  if (!tag->title().isNull() && !tag->title().isEmpty())
+  if (!tag->title().isEmpty())
     m_sTitle = tag->title().toCString(true);
 
-  if (!tag->artist().isNull() && !tag->artist().isEmpty())
+  if (!tag->artist().isEmpty())
     m_sArtist = tag->artist().toCString(true);
 
-  if (!tag->album().isNull() && !tag->album().isEmpty())
+  if (!tag->album().isEmpty())
     m_sAlbum = tag->album().toCString(true);
 
   if (tag->track() != 0)

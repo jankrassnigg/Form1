@@ -310,6 +310,9 @@ void SmartPlaylistModification::Coalesce(ModificationRecorder<SmartPlaylistModif
       // remove all other query changes
       return mod.m_Type == Type::ChangeQuery;
     });
+    
+  default:
+    break;
   }
   break;
 

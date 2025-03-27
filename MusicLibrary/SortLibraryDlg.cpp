@@ -143,12 +143,12 @@ void SortLibraryDlg::FillTable()
   headers.append("Target");
   headers.append("Message");
 
-  ModificationsTable->setColumnCount(headers.size());
+  ModificationsTable->setColumnCount((int)headers.size());
   ModificationsTable->setHorizontalHeaderLabels(headers);
 
   ModificationsTable->setRowCount((int)m_CopyInfo.size());
 
-  const int chopStart = m_sFolder.length() + 1;
+  const int chopStart = (int)m_sFolder.length() + 1;
 
   for (int i = 0; i < (int)m_CopyInfo.size(); ++i)
   {

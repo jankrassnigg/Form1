@@ -1,5 +1,37 @@
 #include "FileSystemWatcher.h"
 
+#if __APPLE__
+
+struct ezDirectoryWatcherImpl
+{
+};
+
+ezDirectoryWatcher::ezDirectoryWatcher()
+: m_pImpl(new ezDirectoryWatcherImpl)
+{
+}
+
+bool ezDirectoryWatcher::OpenDirectory(const QString& absolutePath, uint32_t whatToWatch)
+{
+  return true;
+}
+
+void ezDirectoryWatcher::CloseDirectory()
+{
+}
+
+ezDirectoryWatcher::~ezDirectoryWatcher()
+{
+  CloseDirectory();
+  delete m_pImpl;
+}
+
+void ezDirectoryWatcher::EnumerateChanges(std::function<void(const QString& filename, ezDirectoryWatcherAction action)> func)
+{
+}
+
+#else
+
 #include <windows.h>
 #include <vector>
 
@@ -145,3 +177,5 @@ void ezDirectoryWatcher::EnumerateChanges(std::function<void(const QString& file
     }
   }
 }
+
+#endif

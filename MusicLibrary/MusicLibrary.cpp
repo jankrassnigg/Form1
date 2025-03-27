@@ -5,7 +5,12 @@
 #include <QDirIterator>
 #include <QtConcurrent/QtConcurrentRun>
 #include <assert.h>
+
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 MusicLibrary* MusicLibrary::s_Singleton = nullptr;
 
@@ -315,11 +320,15 @@ void MusicLibrary::SqlExec(const QString& stmt, int (*callback)(void*, int, char
 
   if (ret != SQLITE_OK && ret != SQLITE_ABORT)
   {
+#ifdef _WIN32
     char msg[512];
     sprintf_s(msg, 512, "SQL error: %s\n", szErrMsg);
     sqlite3_free(szErrMsg);
-
     OutputDebugStringA(msg);
+#else
+    printf("SQL error: %s\n", szErrMsg);
+    sqlite3_free(szErrMsg);
+#endif
   }
 }
 
@@ -1120,7 +1129,11 @@ void MusicLibrary::RestoreFromDatabase()
     }
 
     // don't hog the CPU with this too much, leave it running in the background
+#if _WIN32
     Sleep(1);
+#else
+    usleep(1000);
+#endif
   }
 }
 
@@ -1212,7 +1225,11 @@ void MusicLibrary::CleanUpSongs()
     }
 
     // don't hog the CPU with this too much, leave it running in the background
+#if _WIN32
     Sleep(1);
+#else
+    usleep(1000);
+#endif
   }
 
   if (!toRemove.empty())

@@ -374,7 +374,7 @@
   <customwidget>
    <class>TrackListView</class>
    <extends>QTreeView</extends>
-   <header>tracklistview.h</header>
+   <header>GUI/TracklistView.h</header>
   </customwidget>
  </customwidgets>
  <resources>

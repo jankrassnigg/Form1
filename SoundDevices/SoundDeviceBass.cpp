@@ -34,7 +34,7 @@ bool SoundDeviceBass::SetMedia(const char* szFile, int startOffsetMS, int endOff
 #ifdef Q_OS_WIN32
   m_MediaStream = BASS_StreamCreateFile(FALSE, tmp.toStdWString().data(), 0, 0, BASS_UNICODE);
 #else
-  m_MediaStream = BASS_StreamCreateFile(FALSE, tmp.toUtf8().data(), 0, 0, BASS_UNICODE);
+  m_MediaStream = BASS_StreamCreateFile(FALSE, tmp.toUtf8().data(), 0, 0, 0);
 #endif
 
   const int err = BASS_ErrorGetCode();

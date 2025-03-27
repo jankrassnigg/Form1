@@ -28,7 +28,10 @@
 #include <QUrl>
 #include <QUuid>
 #include <set>
+
+#if _WIN32
 #include <windows.h>
+#endif
 
 // #ifdef Q_OS_WIN32
 // #include <QWinTaskbarProgress>
@@ -44,14 +47,17 @@ public:
     switch (e->type())
     {
     case QEvent::KeyPress:
-    {
-      QKeyEvent* keyEvent = static_cast<QKeyEvent*>(e);
-      if (keyEvent->key() == Qt::Key_Escape)
       {
-        reinterpret_cast<QLineEdit*>(parent())->setText(QString());
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(e);
+        if (keyEvent->key() == Qt::Key_Escape)
+        {
+          reinterpret_cast<QLineEdit*>(parent())->setText(QString());
+        }
+        break;
       }
-      break;
-    }
+        
+      default:
+        break;
     }
 
     return QObject::eventFilter(obj, e);
@@ -949,6 +955,7 @@ void Form1::onStartCurrentTrack()
 
 bool Form1::RegisterGlobalHotkeys()
 {
+#if _WIN32
   if (!RegisterHotKey(HWND(winId()), 1, MOD_WIN, VK_NUMPAD5))
     return false;
   if (!RegisterHotKey(HWND(winId()), 1, MOD_WIN, VK_NUMPAD4))
@@ -977,7 +984,8 @@ bool Form1::RegisterGlobalHotkeys()
     return false;
   if (!RegisterHotKey(HWND(winId()), 2, MOD_WIN | MOD_CONTROL, VK_NUMPAD9))
     return false;
-
+#endif
+  
   return true;
 }
 
@@ -985,6 +993,8 @@ bool Form1::nativeEvent(const QByteArray& eventType, void* message, qintptr* res
 {
   Q_UNUSED(eventType);
   Q_UNUSED(result);
+  
+#if _WIN32
 
   MSG* msg = static_cast<MSG*>(message);
 
@@ -1049,6 +1059,8 @@ bool Form1::nativeEvent(const QByteArray& eventType, void* message, qintptr* res
       RateAndSkipSong(AppState::GetSingleton()->GetActiveSongGuid());
     }
   }
+  
+#endif
 
   return QMainWindow::nativeEvent(eventType, message, result);
 }

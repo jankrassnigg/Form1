@@ -67,8 +67,8 @@ public:
   virtual PlaylistCategory GetCategory() override;
   virtual void SetTitle(const QString& title) override;
 
-  virtual bool CanSelectLoop() const { return false; }
-  virtual bool CanSelectShuffle() const { return false; }
+  virtual bool CanSelectLoop() const override { return false; }
+  virtual bool CanSelectShuffle() const override { return false; }
   virtual bool CanSort() override;
   virtual bool CanModifySongList() const override;
   virtual bool CanAddSong(const QString& songGuid) const override;
