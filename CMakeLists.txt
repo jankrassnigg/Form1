@@ -199,16 +199,16 @@ target_link_libraries(${PROJECT_NAME} ${SQLITE3_LIBRARY})
 target_link_libraries(${PROJECT_NAME} Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network)
 
 if(WIN32)
-  target_link_libraries(${PROJECT_NAME} bass)
+  target_link_libraries(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/Bass/bass.lib")
   
   add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-  	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/bass.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>
-  	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/basswma.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>
+  	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/Bass/bass.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>
+  	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/Bass/basswma.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>
   )
 elseif(APPLE)
   target_link_libraries(${PROJECT_NAME} libbass.dylib)
 
   add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/libbass.dylib" $<TARGET_FILE_DIR:${PROJECT_NAME}>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/Bass/libbass.dylib" $<TARGET_FILE_DIR:${PROJECT_NAME}>
   )
 endif()

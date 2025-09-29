@@ -1,7 +1,7 @@
 #pragma once
 
 #include "SoundDevices/SoundDevice.h"
-#include "bass.h"
+#include "Bass/bass.h"
 
 class SoundDeviceBass : public SoundDevice
 {
