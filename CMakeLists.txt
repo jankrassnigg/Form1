@@ -200,10 +200,14 @@ target_link_libraries(${PROJECT_NAME} Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Netwo
 
 if(WIN32)
   target_link_libraries(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/Bass/bass.lib")
-  
+
   add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
   	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/Bass/bass.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>
   	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/Bass/basswma.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>
+  	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/qt.conf" $<TARGET_FILE_DIR:${PROJECT_NAME}>
+  	COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/platforms
+  	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${USED_VCPKG_ROOT}/installed/x64-windows/Qt6/plugins/platforms/qwindows.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/platforms/
+  	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${USED_VCPKG_ROOT}/installed/x64-windows/Qt6/plugins/platforms/qminimal.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/platforms/
   )
 elseif(APPLE)
   target_link_libraries(${PROJECT_NAME} libbass.dylib)
