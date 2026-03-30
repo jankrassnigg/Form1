@@ -1,10 +1,13 @@
 package com.form1.musicplayer
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -12,8 +15,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -25,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -35,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.form1.musicplayer.music.MusicSourceConfig
 import com.form1.musicplayer.onedrive.OneDriveAuthManager
 import com.form1.musicplayer.ui.AppNavigationDrawer
 import com.form1.musicplayer.ui.NavigationScreen
@@ -66,31 +74,46 @@ fun SettingsScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     val authManager = remember { OneDriveAuthManager(context) }
+    val musicSourceConfig = remember { MusicSourceConfig(context) }
+
     var isInitialized by remember { mutableStateOf(false) }
     var isSignedIn by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("Not connected") }
 
+    val musicFolderPath by musicSourceConfig.oneDriveMusicFolderPath.collectAsState(initial = null)
+    val musicFolderId by musicSourceConfig.oneDriveMusicFolderId.collectAsState(initial = null)
+
+    // Launcher for the folder picker activity
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val folderId = result.data?.getStringExtra(OneDriveBrowserActivity.RESULT_FOLDER_ID) ?: ""
+            val folderName = result.data?.getStringExtra(OneDriveBrowserActivity.RESULT_FOLDER_NAME) ?: ""
+            scope.launch {
+                musicSourceConfig.setOneDriveMusicFolder(folderId, folderName)
+            }
+        }
+    }
+
     // Initialize and check sign-in status
     LaunchedEffect(Unit) {
-        scope.launch {
-            isLoading = true
-            val initialized = authManager.initialize()
-            isInitialized = initialized
-
-            if (initialized) {
-                isSignedIn = authManager.isSignedIn()
-                statusMessage = if (isSignedIn) {
-                    val account = authManager.getCurrentAccount()
-                    "Connected as ${account?.username ?: "Unknown"}"
-                } else {
-                    "Not connected"
-                }
+        isLoading = true
+        val initialized = authManager.initialize()
+        isInitialized = initialized
+        if (initialized) {
+            isSignedIn = authManager.isSignedIn()
+            statusMessage = if (isSignedIn) {
+                val account = authManager.getCurrentAccount()
+                "Connected as ${account?.username ?: "Unknown"}"
             } else {
-                statusMessage = "Failed to initialize"
+                "Not connected"
             }
-            isLoading = false
+        } else {
+            statusMessage = "Failed to initialize"
         }
+        isLoading = false
     }
 
     ModalNavigationDrawer(
@@ -124,142 +147,196 @@ fun SettingsScreen(
             }
         ) { innerPadding ->
             Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = "App Settings",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // OneDrive Settings Card (placeholder)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Text(
+                    text = "App Settings",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // OneDrive Account Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Cloud,
-                        contentDescription = "OneDrive",
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Cloud,
+                            contentDescription = "OneDrive",
+                            modifier = Modifier.padding(bottom = 8.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
 
-                    Text(
-                        text = "OneDrive Integration",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-
-                    if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.padding(8.dp))
-                    } else {
                         Text(
-                            text = statusMessage,
+                            text = "OneDrive Account",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.padding(8.dp))
+                        } else {
+                            Text(
+                                text = statusMessage,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (isSignedIn) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.secondary
+                                }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        if (isSignedIn) {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        isLoading = true
+                                        val success = authManager.signOut()
+                                        if (success) {
+                                            isSignedIn = false
+                                            statusMessage = "Not connected"
+                                        } else {
+                                            statusMessage = "Sign out failed"
+                                        }
+                                        isLoading = false
+                                    }
+                                }
+                            ) {
+                                Text("Sign Out")
+                            }
+                        } else {
+                            Button(
+                                onClick = {
+                                    activity?.let { act ->
+                                        scope.launch {
+                                            isLoading = true
+                                            val result = authManager.signIn(act)
+                                            isLoading = false
+                                            if (result.success) {
+                                                isSignedIn = true
+                                                statusMessage = "Connected as ${result.account?.username ?: "Unknown"}"
+                                            } else {
+                                                statusMessage = "Sign in failed: ${result.error}"
+                                            }
+                                        }
+                                    }
+                                },
+                                enabled = isInitialized && !isLoading
+                            ) {
+                                Text("Connect to OneDrive")
+                            }
+                        }
+                    }
+                }
+
+                // Music Folder Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Folder,
+                            contentDescription = "Music Folder",
+                            modifier = Modifier.padding(bottom = 8.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+
+                        Text(
+                            text = "OneDrive Music Folder",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+
+                        Text(
+                            text = if (musicFolderPath != null) musicFolderPath!! else "Not configured",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (isSignedIn) {
+                            color = if (musicFolderPath != null) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.secondary
                             }
                         )
-                    }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                    if (isSignedIn) {
-                        // Browse OneDrive button
                         Button(
                             onClick = {
-                                val intent = Intent(context, OneDriveBrowserActivity::class.java)
-                                context.startActivity(intent)
-                            }
-                        ) {
-                            Text("Browse OneDrive Music")
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Sign out button
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    isLoading = true
-                                    val success = authManager.signOut()
-                                    if (success) {
-                                        isSignedIn = false
-                                        statusMessage = "Not connected"
-                                    } else {
-                                        statusMessage = "Sign out failed"
-                                    }
-                                    isLoading = false
+                                val intent = Intent(context, OneDriveBrowserActivity::class.java).apply {
+                                    putExtra(OneDriveBrowserActivity.EXTRA_MODE, OneDriveBrowserActivity.MODE_FOLDER_PICKER)
                                 }
-                            }
-                        ) {
-                            Text("Sign Out")
-                        }
-                    } else {
-                        // Sign in button
-                        Button(
-                            onClick = {
-                                activity?.let { act ->
-                                    scope.launch {
-                                        isLoading = true
-                                        val result = authManager.signIn(act)
-                                        isLoading = false
-
-                                        if (result.success) {
-                                            isSignedIn = true
-                                            statusMessage = "Connected as ${result.account?.username ?: "Unknown"}"
-                                        } else {
-                                            statusMessage = "Sign in failed: ${result.error}"
-                                        }
-                                    }
-                                }
+                                folderPickerLauncher.launch(intent)
                             },
-                            enabled = isInitialized && !isLoading
+                            enabled = isSignedIn
                         ) {
-                            Text("Connect to OneDrive")
+                            Text(if (musicFolderId != null) "Change Music Folder" else "Choose Music Folder")
+                        }
+
+                        if (musicFolderId != null) {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        musicSourceConfig.clearOneDriveMusicFolder()
+                                    }
+                                }
+                            ) {
+                                Text("Clear")
+                            }
+                        }
+
+                        if (!isSignedIn) {
+                            Text(
+                                text = "Connect to OneDrive first",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
                         }
                     }
                 }
-            }
 
-            // App Info Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                // App Info Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    Text(
-                        text = "About",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "Form1 Music Player",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = "Version: 1.0 (Milestone 3)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "About",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "Form1 Music Player",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Version: 1.0 (Alpha)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
                 }
             }
-        }
         }
     }
 }

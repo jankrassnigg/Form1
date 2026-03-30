@@ -83,6 +83,9 @@ dependencies {
     // Microsoft Authentication Library (MSAL) for OneDrive
     implementation("com.microsoft.identity.client:msal:5.3.0")
 
+    // DataStore for persistent key-value storage
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
     // HTTP client for API calls
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 

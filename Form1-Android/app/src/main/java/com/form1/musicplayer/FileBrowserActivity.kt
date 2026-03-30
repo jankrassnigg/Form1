@@ -15,15 +15,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -31,6 +31,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
@@ -39,6 +41,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -73,6 +76,8 @@ class FileBrowserActivity : ComponentActivity() {
     }
 }
 
+private val TABS = listOf("Local", "OneDrive")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileBrowserScreen(
@@ -83,8 +88,8 @@ fun FileBrowserScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val uiState by fileBrowserViewModel.uiState.collectAsState()
-    var searchQuery by remember { mutableStateOf("") }
+
+    var selectedTab by remember { mutableIntStateOf(0) }
     var showSortMenu by remember { mutableStateOf(false) }
 
     ModalNavigationDrawer(
@@ -104,156 +109,156 @@ fun FileBrowserScreen(
                     title = { Text("Music Library") },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Menu"
-                            )
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
                         }
                     },
-                actions = {
-                    // Sort button
-                    Box {
-                        IconButton(onClick = { showSortMenu = true }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Sort,
-                                contentDescription = "Sort"
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false }
-                        ) {
-                            SortOrder.entries.forEach { sortOrder ->
-                                DropdownMenuItem(
-                                    text = { Text(sortOrder.displayName) },
-                                    onClick = {
-                                        fileBrowserViewModel.setSortOrder(sortOrder)
-                                        showSortMenu = false
+                    actions = {
+                        if (selectedTab == 0) {
+                            Box {
+                                IconButton(onClick = { showSortMenu = true }) {
+                                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
+                                }
+                                DropdownMenu(
+                                    expanded = showSortMenu,
+                                    onDismissRequest = { showSortMenu = false }
+                                ) {
+                                    SortOrder.entries.forEach { sortOrder ->
+                                        DropdownMenuItem(
+                                            text = { Text(sortOrder.displayName) },
+                                            onClick = {
+                                                fileBrowserViewModel.setSortOrder(sortOrder)
+                                                showSortMenu = false
+                                            }
+                                        )
                                     }
-                                )
+                                }
+                            }
+                            IconButton(onClick = { fileBrowserViewModel.loadAudioFiles() }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                             }
                         }
-                    }
-
-                    // Refresh button
-                    IconButton(onClick = { fileBrowserViewModel.loadAudioFiles() }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 )
-            )
-        }
+            }
         ) { innerPadding ->
             Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            // Search bar
-            TextField(
-                value = searchQuery,
-                onValueChange = { query ->
-                    searchQuery = query
-                    fileBrowserViewModel.search(query)
-                },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                placeholder = { Text("Search by title, artist, or album...") },
-                singleLine = true
-            )
-
-            // Content based on UI state
-            when (val state = uiState) {
-                is FileBrowserUiState.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator()
-                            Text(
-                                text = "Scanning audio files...",
-                                modifier = Modifier.padding(top = 16.dp),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                TabRow(selectedTabIndex = selectedTab) {
+                    TABS.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            text = { Text(title) }
+                        )
                     }
                 }
 
-                is FileBrowserUiState.Empty -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Default.MusicNote,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.padding(16.dp)
-                            )
-                            Text(
-                                text = if (searchQuery.isBlank()) {
-                                    "No audio files found"
-                                } else {
-                                    "No results for \"$searchQuery\""
-                                },
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-                    }
-                }
-
-                is FileBrowserUiState.Success -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item {
-                            Text(
-                                text = "${state.files.size} song${if (state.files.size != 1) "s" else ""}",
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-
-                        items(state.files) { audioFile ->
-                            AudioFileItem(
-                                audioFile = audioFile,
-                                onClick = {
-                                    audioPlayerViewModel.playAudio(audioFile.uri, audioFile.title)
-                                }
-                            )
-                        }
-                    }
-                }
-
-                is FileBrowserUiState.Error -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "Error: ${state.message}",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
+                when (selectedTab) {
+                    0 -> LocalFileBrowserContent(
+                        fileBrowserViewModel = fileBrowserViewModel,
+                        audioPlayerViewModel = audioPlayerViewModel
+                    )
+                    1 -> OneDriveBrowserContent(
+                        audioPlayerViewModel = audioPlayerViewModel
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LocalFileBrowserContent(
+    fileBrowserViewModel: FileBrowserViewModel,
+    audioPlayerViewModel: AudioPlayerViewModel
+) {
+    val uiState by fileBrowserViewModel.uiState.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TextField(
+            value = searchQuery,
+            onValueChange = { query ->
+                searchQuery = query
+                fileBrowserViewModel.search(query)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            placeholder = { Text("Search by title, artist, or album...") },
+            singleLine = true
+        )
+
+        when (val state = uiState) {
+            is FileBrowserUiState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Text(
+                            text = "Scanning audio files...",
+                            modifier = Modifier.padding(top = 16.dp),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+
+            is FileBrowserUiState.Empty -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.MusicNote,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                        Text(
+                            text = if (searchQuery.isBlank()) "No audio files found" else "No results for \"$searchQuery\"",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+            }
+
+            is FileBrowserUiState.Success -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        Text(
+                            text = "${state.files.size} song${if (state.files.size != 1) "s" else ""}",
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                    items(state.files) { audioFile ->
+                        AudioFileItem(
+                            audioFile = audioFile,
+                            onClick = { audioPlayerViewModel.playAudio(audioFile.uri, audioFile.title) }
+                        )
+                    }
+                }
+            }
+
+            is FileBrowserUiState.Error -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Error: ${state.message}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         }
     }
 }
@@ -291,7 +296,6 @@ fun AudioFileItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
                 Text(
                     text = audioFile.artist,
                     style = MaterialTheme.typography.bodyMedium,
@@ -299,7 +303,6 @@ fun AudioFileItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
                 if (audioFile.album.isNotEmpty() && audioFile.album != "Unknown Album") {
                     Text(
                         text = audioFile.album,
@@ -311,7 +314,6 @@ fun AudioFileItem(
                 }
             }
 
-            // Duration
             if (audioFile.duration > 0) {
                 Text(
                     text = formatTime(audioFile.duration),

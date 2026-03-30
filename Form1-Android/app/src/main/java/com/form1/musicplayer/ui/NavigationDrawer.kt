@@ -12,7 +12,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.form1.musicplayer.*
-import com.form1.musicplayer.onedrive.OneDriveAuthManager
 import kotlinx.coroutines.launch
 
 /**
@@ -80,32 +79,6 @@ fun AppNavigationDrawer(
                     if (currentScreen != NavigationScreen.LIBRARY) {
                         val intent = Intent(context, FileBrowserActivity::class.java)
                         context.startActivity(intent)
-                    }
-                },
-                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-            )
-
-            NavigationDrawerItem(
-                icon = { Icon(Icons.Default.Cloud, contentDescription = null) },
-                label = { Text("OneDrive") },
-                selected = currentScreen == NavigationScreen.ONEDRIVE,
-                onClick = {
-                    scope.launch {
-                        drawerState.close()
-
-                        // Check if signed in to OneDrive
-                        val authManager = OneDriveAuthManager(context)
-                        val initialized = authManager.initialize()
-                        val isSignedIn = if (initialized) authManager.isSignedIn() else false
-
-                        if (currentScreen != NavigationScreen.ONEDRIVE) {
-                            val intent = if (isSignedIn) {
-                                Intent(context, OneDriveBrowserActivity::class.java)
-                            } else {
-                                Intent(context, SettingsActivity::class.java)
-                            }
-                            context.startActivity(intent)
-                        }
                     }
                 },
                 modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
