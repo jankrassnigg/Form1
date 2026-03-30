@@ -1,0 +1,15 @@
+{
+  "client_id": "90d576a2-9a8b-4a3c-a511-eea1601cddfe",
+  "authorization_user_agent": "DEFAULT",
+  "redirect_uri": "msauth://com.form1.musicplayer/callback",
+  "account_mode": "SINGLE",
+  "broker_redirect_uri_registered": false,
+  "authorities": [
+    {
+      "type": "AAD",
+      "audience": {
+        "type": "PersonalMicrosoftAccount"
+      }
+    }
+  ]
+}
