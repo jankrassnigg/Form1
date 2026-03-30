@@ -40,10 +40,17 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Storage
 import com.form1.musicplayer.music.MusicSourceConfig
 import com.form1.musicplayer.onedrive.OneDriveAuthManager
+import com.form1.musicplayer.onedrive.OneDriveService
+import com.form1.musicplayer.profile.ProfileConfig
+import com.form1.musicplayer.profile.ProfileManager
+import com.form1.musicplayer.profile.StorageType
 import com.form1.musicplayer.ui.AppNavigationDrawer
 import com.form1.musicplayer.ui.NavigationScreen
 import com.form1.musicplayer.ui.theme.Form1MusicPlayerTheme
@@ -74,7 +81,10 @@ fun SettingsScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     val authManager = remember { OneDriveAuthManager(context) }
+    val oneDriveService = remember { OneDriveService(authManager) }
     val musicSourceConfig = remember { MusicSourceConfig(context) }
+    val profileConfig = remember { ProfileConfig(context) }
+    val profileManager = remember { ProfileManager(context, profileConfig, oneDriveService) }
 
     var isInitialized by remember { mutableStateOf(false) }
     var isSignedIn by remember { mutableStateOf(false) }
@@ -84,7 +94,12 @@ fun SettingsScreen(
     val musicFolderPath by musicSourceConfig.oneDriveMusicFolderPath.collectAsState(initial = null)
     val musicFolderId by musicSourceConfig.oneDriveMusicFolderId.collectAsState(initial = null)
 
-    // Launcher for the folder picker activity
+    val profileStorageType by profileConfig.storageType.collectAsState(initial = StorageType.LOCAL)
+    val profileFolderPath by profileConfig.oneDriveFolderPath.collectAsState(initial = null)
+    var isMigrating by remember { mutableStateOf(false) }
+    var migrationError by remember { mutableStateOf<String?>(null) }
+
+    // Launcher for the music folder picker
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -93,6 +108,25 @@ fun SettingsScreen(
             val folderName = result.data?.getStringExtra(OneDriveBrowserActivity.RESULT_FOLDER_NAME) ?: ""
             scope.launch {
                 musicSourceConfig.setOneDriveMusicFolder(folderId, folderName)
+            }
+        }
+    }
+
+    // Launcher for the profile folder picker
+    val profileFolderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val folderId = result.data?.getStringExtra(OneDriveBrowserActivity.RESULT_FOLDER_ID) ?: ""
+            val folderName = result.data?.getStringExtra(OneDriveBrowserActivity.RESULT_FOLDER_NAME) ?: ""
+            scope.launch {
+                isMigrating = true
+                migrationError = null
+                val switchResult = profileManager.switchToOneDrive(folderId, folderName)
+                isMigrating = false
+                if (switchResult.isFailure) {
+                    migrationError = switchResult.exceptionOrNull()?.message ?: "Migration failed"
+                }
             }
         }
     }
@@ -206,13 +240,10 @@ fun SettingsScreen(
                                 onClick = {
                                     scope.launch {
                                         isLoading = true
-                                        val success = authManager.signOut()
-                                        if (success) {
-                                            isSignedIn = false
-                                            statusMessage = "Not connected"
-                                        } else {
-                                            statusMessage = "Sign out failed"
-                                        }
+                                        try { authManager.signOut() } catch (_: Exception) { }
+                                        // Always treat as signed out — MSAL cache may be stale
+                                        isSignedIn = false
+                                        statusMessage = "Not connected"
                                         isLoading = false
                                     }
                                 }
@@ -246,7 +277,7 @@ fun SettingsScreen(
 
                 // Music Folder Card
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().alpha(if (isSignedIn) 1f else 0.4f),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Column(
@@ -282,6 +313,7 @@ fun SettingsScreen(
                             onClick = {
                                 val intent = Intent(context, OneDriveBrowserActivity::class.java).apply {
                                     putExtra(OneDriveBrowserActivity.EXTRA_MODE, OneDriveBrowserActivity.MODE_FOLDER_PICKER)
+                                    putExtra(OneDriveBrowserActivity.EXTRA_PICKER_TITLE, "Select Music Folder")
                                 }
                                 folderPickerLauncher.launch(intent)
                             },
@@ -300,6 +332,107 @@ fun SettingsScreen(
                             ) {
                                 Text("Clear")
                             }
+                        }
+
+                        if (!isSignedIn) {
+                            Text(
+                                text = "Connect to OneDrive first",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+                }
+
+                // Profile Storage Card
+                Card(
+                    modifier = Modifier.fillMaxWidth().alpha(if (isSignedIn) 1f else 0.4f),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Storage,
+                            contentDescription = "Profile Storage",
+                            modifier = Modifier.padding(bottom = 8.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+
+                        Text(
+                            text = "Profile Storage",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+
+                        val locationLabel = when (profileStorageType) {
+                            StorageType.LOCAL -> "Stored on device"
+                            StorageType.ONEDRIVE -> profileFolderPath ?: "OneDrive (unknown folder)"
+                        }
+                        Text(
+                            text = locationLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        if (isMigrating) {
+                            CircularProgressIndicator(modifier = Modifier.padding(8.dp))
+                            Text(
+                                text = "Migrating profile files…",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+
+                        migrationError?.let { err ->
+                            Text(
+                                text = err,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        if (profileStorageType == StorageType.ONEDRIVE) {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        isMigrating = true
+                                        migrationError = null
+                                        val result = profileManager.switchToLocal()
+                                        isMigrating = false
+                                        if (result.isFailure) {
+                                            migrationError = result.exceptionOrNull()?.message ?: "Switch failed"
+                                        }
+                                    }
+                                },
+                                enabled = !isMigrating
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PhoneAndroid,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text("Store on Device")
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                val intent = Intent(context, OneDriveBrowserActivity::class.java).apply {
+                                    putExtra(OneDriveBrowserActivity.EXTRA_MODE, OneDriveBrowserActivity.MODE_FOLDER_PICKER)
+                                    putExtra(OneDriveBrowserActivity.EXTRA_PICKER_TITLE, "Select Profile Folder")
+                                }
+                                profileFolderPickerLauncher.launch(intent)
+                            },
+                            enabled = isSignedIn && !isMigrating
+                        ) {
+                            Text(
+                                if (profileStorageType == StorageType.ONEDRIVE) "Change OneDrive Folder"
+                                else "Store in OneDrive"
+                            )
                         }
 
                         if (!isSignedIn) {

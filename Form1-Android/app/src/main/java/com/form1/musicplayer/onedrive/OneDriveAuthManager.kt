@@ -19,7 +19,7 @@ class OneDriveAuthManager(private val context: Context) {
 
     private var msalApp: ISingleAccountPublicClientApplication? = null
     private val scopes = arrayOf(
-        "Files.Read"
+        "Files.ReadWrite"
     )
 
     companion object {

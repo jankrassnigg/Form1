@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MusicNote
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -83,6 +85,7 @@ class OneDriveBrowserActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_MODE = "mode"
+        const val EXTRA_PICKER_TITLE = "pickerTitle"
         const val MODE_FOLDER_PICKER = "FOLDER_PICKER"
         const val RESULT_FOLDER_ID = "folderId"
         const val RESULT_FOLDER_NAME = "folderName"
@@ -92,10 +95,12 @@ class OneDriveBrowserActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val isFolderPickerMode = intent.getStringExtra(EXTRA_MODE) == MODE_FOLDER_PICKER
+        val pickerTitle = intent.getStringExtra(EXTRA_PICKER_TITLE) ?: "Select Folder"
         setContent {
             Form1MusicPlayerTheme {
                 OneDriveBrowserScreen(
                     isFolderPickerMode = isFolderPickerMode,
+                    pickerTitle = pickerTitle,
                     onBackClick = { finish() }
                 )
             }
@@ -107,6 +112,7 @@ class OneDriveBrowserActivity : ComponentActivity() {
 @Composable
 fun OneDriveBrowserScreen(
     isFolderPickerMode: Boolean = false,
+    pickerTitle: String = "Select Folder",
     onBackClick: () -> Unit,
     audioPlayerViewModel: AudioPlayerViewModel = viewModel()
 ) {
@@ -128,6 +134,12 @@ fun OneDriveBrowserScreen(
     // Selection state (normal browse mode only)
     var selectedFiles by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showPlaylistDialog by remember { mutableStateOf(false) }
+
+    // New folder dialog (folder picker mode only)
+    var showNewFolderDialog by remember { mutableStateOf(false) }
+    var newFolderName by remember { mutableStateOf("") }
+    var newFolderError by remember { mutableStateOf<String?>(null) }
+    var isCreatingFolder by remember { mutableStateOf(false) }
 
     val currentFolder = folderStack?.lastOrNull()
 
@@ -178,7 +190,7 @@ fun OneDriveBrowserScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            if (isFolderPickerMode) "Select Music Folder"
+                            if (isFolderPickerMode) pickerTitle
                             else currentFolder?.second ?: "OneDrive"
                         )
                     },
@@ -199,7 +211,15 @@ fun OneDriveBrowserScreen(
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Up")
                             }
                         }
-                        if (!isFolderPickerMode) {
+                        if (isFolderPickerMode) {
+                            IconButton(onClick = {
+                                newFolderName = ""
+                                newFolderError = null
+                                showNewFolderDialog = true
+                            }) {
+                                Icon(Icons.Default.CreateNewFolder, contentDescription = "New Folder")
+                            }
+                        } else {
                             IconButton(onClick = {
                                 scope.launch {
                                     loadFolderContents(oneDriveService, currentFolder?.first) { state -> uiState = state }
@@ -404,6 +424,56 @@ fun OneDriveBrowserScreen(
                     }
                 }
             }
+        }
+
+        // New Folder dialog (folder picker mode only)
+        if (isFolderPickerMode && showNewFolderDialog) {
+            AlertDialog(
+                onDismissRequest = { if (!isCreatingFolder) showNewFolderDialog = false },
+                title = { Text("New Folder") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = newFolderName,
+                            onValueChange = { newFolderName = it; newFolderError = null },
+                            label = { Text("Folder name") },
+                            singleLine = true,
+                            enabled = !isCreatingFolder
+                        )
+                        newFolderError?.let { err ->
+                            Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (isCreatingFolder) {
+                            CircularProgressIndicator(modifier = Modifier.padding(top = 4.dp))
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val name = newFolderName.trim()
+                            if (name.isEmpty()) { newFolderError = "Please enter a folder name"; return@Button }
+                            scope.launch {
+                                isCreatingFolder = true
+                                val result = oneDriveService.createFolder(currentFolder?.first, name)
+                                isCreatingFolder = false
+                                result.fold(
+                                    onSuccess = { folder ->
+                                        showNewFolderDialog = false
+                                        // Navigate into the newly created folder
+                                        folderStack = folderStack!! + (folder.id to folder.name)
+                                    },
+                                    onFailure = { newFolderError = it.message ?: "Failed to create folder" }
+                                )
+                            }
+                        },
+                        enabled = !isCreatingFolder
+                    ) { Text("Create") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showNewFolderDialog = false }, enabled = !isCreatingFolder) { Text("Cancel") }
+                }
+            )
         }
 
         // Playlist selection dialog (normal browse mode only)

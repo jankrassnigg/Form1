@@ -5,9 +5,13 @@ import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import java.io.IOException
+import java.net.URLEncoder
 
 /**
  * Service for interacting with Microsoft Graph API (OneDrive)
@@ -235,6 +239,190 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
             Result.failure(e)
         }
     }
+
+    // ── Profile file I/O ──────────────────────────────────────────────────────
+
+    /**
+     * Upload [content] as a UTF-8 text file named [fileName] into the OneDrive folder [folderId].
+     * Uses the Graph API PUT upload (simple upload, max 4 MB).
+     * If a file with the same name already exists it will be overwritten.
+     */
+    suspend fun uploadTextFile(folderId: String, fileName: String, content: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val accessToken = authManager.getAccessToken()
+                    ?: return@withContext Result.failure(Exception("Not authenticated"))
+
+                val encodedName = URLEncoder.encode(fileName, "UTF-8").replace("+", "%20")
+                val url = "$GRAPH_API_BASE/me/drive/items/$folderId:/$encodedName:/content"
+                val body = content.toByteArray(Charsets.UTF_8)
+                    .toRequestBody("text/plain; charset=utf-8".toMediaType())
+
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .put(body)
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(
+                            IOException("Upload failed: ${response.code} ${response.message}")
+                        )
+                    }
+                }
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error uploading file: $fileName", e)
+                Result.failure(e)
+            }
+        }
+
+    /**
+     * Download the text content of a OneDrive file by [itemId].
+     */
+    suspend fun downloadFileContent(itemId: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val accessToken = authManager.getAccessToken()
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
+
+            val url = "$GRAPH_API_BASE/me/drive/items/$itemId/content"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $accessToken")
+                .build()
+
+            // OkHttp follows redirects by default, so this will fetch the actual content
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(
+                        IOException("Download failed: ${response.code} ${response.message}")
+                    )
+                }
+                val text = response.body?.string()
+                    ?: return@withContext Result.failure(IOException("Empty response body"))
+                Result.success(text)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error downloading file: $itemId", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Delete a OneDrive item (file or folder) by [itemId].
+     */
+    suspend fun deleteFile(itemId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val accessToken = authManager.getAccessToken()
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
+
+            val url = "$GRAPH_API_BASE/me/drive/items/$itemId"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $accessToken")
+                .delete()
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                // 204 No Content is the success response for DELETE
+                if (!response.isSuccessful && response.code != 204) {
+                    return@withContext Result.failure(
+                        IOException("Delete failed: ${response.code} ${response.message}")
+                    )
+                }
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting file: $itemId", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * List file names in a OneDrive folder. Returns only files (not sub-folders).
+     */
+    suspend fun listFilesInFolder(folderId: String): Result<List<String>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val accessToken = authManager.getAccessToken()
+                    ?: return@withContext Result.failure(Exception("Not authenticated"))
+                val items = fetchItems("$GRAPH_API_BASE/me/drive/items/$folderId/children", accessToken)
+                    ?: return@withContext Result.failure(IOException("Failed to list folder"))
+                val names = items.filter { it.file != null }.map { it.name }
+                Result.success(names)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error listing files in folder: $folderId", e)
+                Result.failure(e)
+            }
+        }
+
+    /**
+     * List files in a OneDrive folder as (name, itemId) pairs. Returns only files (not sub-folders).
+     */
+    suspend fun listFilesInFolderWithIds(folderId: String): Result<List<Pair<String, String>>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val accessToken = authManager.getAccessToken()
+                    ?: return@withContext Result.failure(Exception("Not authenticated"))
+                val items = fetchItems("$GRAPH_API_BASE/me/drive/items/$folderId/children", accessToken)
+                    ?: return@withContext Result.failure(IOException("Failed to list folder"))
+                val pairs = items.filter { it.file != null }.map { it.name to it.id }
+                Result.success(pairs)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error listing files (with IDs) in folder: $folderId", e)
+                Result.failure(e)
+            }
+        }
+
+    /**
+     * Create a new subfolder named [folderName] inside [parentFolderId].
+     * Returns the new folder's id and name on success.
+     */
+    suspend fun createFolder(parentFolderId: String?, folderName: String): Result<OneDriveFolder> =
+        withContext(Dispatchers.IO) {
+            try {
+                val accessToken = authManager.getAccessToken()
+                    ?: return@withContext Result.failure(Exception("Not authenticated"))
+
+                val url = if (parentFolderId == null) {
+                    "$GRAPH_API_BASE/me/drive/root/children"
+                } else {
+                    "$GRAPH_API_BASE/me/drive/items/$parentFolderId/children"
+                }
+
+                val json = JSONObject().apply {
+                    put("name", folderName)
+                    put("folder", JSONObject())
+                    put("@microsoft.graph.conflictBehavior", "rename")
+                }.toString()
+
+                val body = json.toRequestBody("application/json".toMediaType())
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .post(body)
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(
+                            IOException("Create folder failed: ${response.code} ${response.message}")
+                        )
+                    }
+                    val responseJson = JSONObject(response.body?.string() ?: "{}")
+                    val newFolder = OneDriveFolder(
+                        id = responseJson.optString("id"),
+                        name = responseJson.optString("name"),
+                        childCount = 0
+                    )
+                    Result.success(newFolder)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating folder: $folderName", e)
+                Result.failure(e)
+            }
+        }
 
     /** Fetch the direct children of a folder. Blocking — call from Dispatchers.IO only. */
     private fun listChildren(folderId: String, accessToken: String): List<DriveItem>? =
