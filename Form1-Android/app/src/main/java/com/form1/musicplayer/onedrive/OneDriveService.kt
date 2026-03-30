@@ -1,6 +1,5 @@
 package com.form1.musicplayer.onedrive
 
-import android.net.Uri
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
@@ -147,6 +146,117 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
     }
 
     /**
+     * Search for audio files matching [query] within the given root folder (or all of OneDrive).
+     *
+     * Two-phase strategy:
+     *   Phase 1 — Graph API search by user query: finds audio files whose *name* matches and
+     *             folders whose name matches (e.g. artist/album folders).
+     *   Phase 2 — for each matching folder, list its children via the `children` endpoint
+     *             (two levels deep: artist → album → songs). The `children` endpoint is always
+     *             correctly scoped, unlike folder-scoped `search` which can return drive-wide
+     *             results.
+     *
+     * This lets "Beatles" find songs inside a folder named "The Beatles" even though the
+     * individual filenames don't contain "Beatles".
+     */
+    /**
+     * Search for audio files matching [query] within the given root folder (or all of OneDrive).
+     *
+     * Multi-keyword strategy:
+     *   - Split query on whitespace into individual keywords.
+     *   - Use the longest keyword as the primary Graph API search term (most selective).
+     *   - Phase 1: Graph search finds audio files and folders whose name contains that keyword.
+     *   - Phase 2: For each matching folder, list children two levels deep (artist → album →
+     *     songs) using the `children` endpoint, which is correctly scoped (unlike folder-scoped
+     *     `search`).
+     *   - Final filter: keep only files where ALL keywords appear somewhere in the combined
+     *     parent path + filename (case-insensitive). This enforces AND semantics across the
+     *     full path without extra API calls.
+     */
+    suspend fun searchAudioFiles(query: String, rootFolderId: String?): Result<List<OneDriveFile>> = withContext(Dispatchers.IO) {
+        try {
+            val accessToken = authManager.getAccessToken()
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
+
+            // Split into keywords; pick the longest as the primary API search term
+            val keywords = query.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            if (keywords.isEmpty()) return@withContext Result.success(emptyList())
+            val primaryKeyword = keywords.maxByOrNull { it.length } ?: keywords.first()
+
+            val seen = mutableSetOf<String>()
+            val candidates = mutableListOf<OneDriveFile>()
+
+            // Phase 1: Graph search by the primary keyword — matches file and folder names
+            val escaped = primaryKeyword.replace("'", "''")
+            val phase1Url = if (rootFolderId.isNullOrEmpty()) {
+                "$GRAPH_API_BASE/me/drive/root/search(q='$escaped')"
+            } else {
+                "$GRAPH_API_BASE/me/drive/items/$rootFolderId/search(q='$escaped')"
+            }
+
+            val phase1Items = fetchItems(phase1Url, accessToken)
+                ?: return@withContext Result.failure(IOException("Search failed"))
+
+            // Direct audio file hits
+            phase1Items
+                .filter { it.file != null && it.name.substringAfterLast('.', "").lowercase() in AUDIO_EXTENSIONS }
+                .forEach { if (seen.add(it.id)) candidates.add(it.toOneDriveFile()) }
+
+            // Phase 2: expand matching folders via children endpoint (correctly scoped)
+            val folderHits = phase1Items.filter { it.folder != null }.take(5)
+            for (artistFolder in folderHits) {
+                val level1 = listChildren(artistFolder.id, accessToken) ?: continue
+
+                level1.filter { it.file != null && it.name.substringAfterLast('.', "").lowercase() in AUDIO_EXTENSIONS }
+                    .forEach { if (seen.add(it.id)) candidates.add(it.toOneDriveFile()) }
+
+                val subFolders = level1.filter { it.folder != null }.take(50)
+                for (albumFolder in subFolders) {
+                    val level2 = listChildren(albumFolder.id, accessToken) ?: continue
+                    level2.filter { it.file != null && it.name.substringAfterLast('.', "").lowercase() in AUDIO_EXTENSIONS }
+                        .forEach { if (seen.add(it.id)) candidates.add(it.toOneDriveFile()) }
+                }
+            }
+
+            // Final filter: all keywords must appear somewhere in path + filename
+            val results = if (keywords.size == 1) {
+                candidates
+            } else {
+                candidates.filter { file ->
+                    val searchable = "${file.parentPath ?: ""} ${file.name}".lowercase()
+                    keywords.all { kw -> kw.lowercase() in searchable }
+                }
+            }
+
+            Log.d(TAG, "Search '$query': ${candidates.size} candidates → ${results.size} after keyword filter")
+            Result.success(results.take(50))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error searching for '$query'", e)
+            Result.failure(e)
+        }
+    }
+
+    /** Fetch the direct children of a folder. Blocking — call from Dispatchers.IO only. */
+    private fun listChildren(folderId: String, accessToken: String): List<DriveItem>? =
+        fetchItems("$GRAPH_API_BASE/me/drive/items/$folderId/children", accessToken)
+
+    /** Fetch drive items from [url]. Blocking — call from Dispatchers.IO only. */
+    private fun fetchItems(url: String, accessToken: String): List<DriveItem>? {
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                Log.w(TAG, "fetchItems failed: ${response.code} $url")
+                return null
+            }
+            val body = response.body?.string() ?: return null
+            return gson.fromJson(body, DriveItemsResponse::class.java).value
+        }
+    }
+
+    /**
      * Get download URL for a file
      */
     suspend fun getDownloadUrl(fileId: String): Result<String> = withContext(Dispatchers.IO) {
@@ -189,7 +299,9 @@ data class OneDriveFile(
     val size: Long,
     val mimeType: String?,
     val downloadUrl: String? = null,
-    val webUrl: String
+    val webUrl: String,
+    /** Parent folder path from Graph API, e.g. "/drive/root:/Music/The Beatles/Abbey Road" */
+    val parentPath: String? = null
 )
 
 /**
@@ -221,8 +333,13 @@ private data class DriveItem(
     @SerializedName("@microsoft.graph.downloadUrl")
     val downloadUrl: String?,
     val webUrl: String,
-    val file: FileProperties?, // Present if it's a file (not folder)
-    val folder: FolderProperties? // Present if it's a folder (not file)
+    val file: FileProperties?,   // Present if it's a file (not folder)
+    val folder: FolderProperties?, // Present if it's a folder (not file)
+    val parentReference: ParentReference?
+)
+
+private data class ParentReference(
+    val path: String? // e.g. "/drive/root:/Music/The Beatles/Abbey Road"
 )
 
 private data class FileProperties(
@@ -239,7 +356,8 @@ private fun DriveItem.toOneDriveFile() = OneDriveFile(
     size = size ?: 0,
     mimeType = file?.mimeType,
     downloadUrl = downloadUrl,
-    webUrl = webUrl
+    webUrl = webUrl,
+    parentPath = parentReference?.path
 )
 
 private fun DriveItem.toOneDriveFolder() = OneDriveFolder(

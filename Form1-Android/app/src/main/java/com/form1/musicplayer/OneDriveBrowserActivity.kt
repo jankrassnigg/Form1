@@ -408,72 +408,30 @@ fun OneDriveBrowserScreen(
 
         // Playlist selection dialog (normal browse mode only)
         if (!isFolderPickerMode && showPlaylistDialog) {
-            val playlists by repository.getAllPlaylists().collectAsState(initial = emptyList())
-
-            AlertDialog(
-                onDismissRequest = { showPlaylistDialog = false },
-                title = { Text("Add to Playlist") },
-                text = {
-                    if (playlists.isEmpty()) {
-                        Text("No playlists available. Create one first from the Playlists screen.")
-                    } else {
-                        Column {
-                            Text("Select a playlist to add ${selectedFiles.size} song${if (selectedFiles.size != 1) "s" else ""}:")
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 16.dp)
-                            ) {
-                                items(playlists) { playlist ->
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 4.dp)
-                                            .clickable {
-                                                scope.launch {
-                                                    val currentState = uiState
-                                                    if (currentState is OneDriveUiState.Success) {
-                                                        val selectedFilesInfo = currentState.contents.audioFiles
-                                                            .filter { selectedFiles.contains(it.id) }
-                                                            .map { file ->
-                                                                TrackInfo(
-                                                                    title = file.name,
-                                                                    source = "onedrive",
-                                                                    uri = file.downloadUrl ?: "",
-                                                                    sourceId = file.id
-                                                                )
-                                                            }
-                                                        repository.addTracksToPlaylist(playlist.id, selectedFilesInfo)
-                                                        selectedFiles = emptySet()
-                                                        showPlaylistDialog = false
-                                                    }
-                                                }
-                                            }
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(16.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                Icons.AutoMirrored.Filled.QueueMusic,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.padding(end = 16.dp)
-                                            )
-                                            Text(playlist.name, style = MaterialTheme.typography.titleMedium)
-                                        }
-                                    }
-                                }
+            val currentState = uiState
+            val currentFiles = if (currentState is OneDriveUiState.Success) currentState.contents.audioFiles else emptyList()
+            AddToPlaylistDialog(
+                selectedCount = selectedFiles.size,
+                selectedFileNames = currentFiles.filter { selectedFiles.contains(it.id) }.map { it.name },
+                repository = repository,
+                onAddToPlaylist = { playlistId ->
+                    scope.launch {
+                        val tracks = currentFiles
+                            .filter { selectedFiles.contains(it.id) }
+                            .map { file ->
+                                TrackInfo(
+                                    title = file.name,
+                                    source = "onedrive",
+                                    uri = file.downloadUrl ?: "",
+                                    sourceId = file.id
+                                )
                             }
-                        }
+                        repository.addTracksToPlaylist(playlistId, tracks)
+                        selectedFiles = emptySet()
+                        showPlaylistDialog = false
                     }
                 },
-                confirmButton = {},
-                dismissButton = {
-                    TextButton(onClick = { showPlaylistDialog = false }) { Text("Cancel") }
-                }
+                onDismiss = { showPlaylistDialog = false }
             )
         }
     }
