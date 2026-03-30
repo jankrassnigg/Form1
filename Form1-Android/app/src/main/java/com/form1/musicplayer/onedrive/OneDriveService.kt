@@ -24,53 +24,57 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
 
         // Audio file extensions to filter
         private val AUDIO_EXTENSIONS = setOf(
-            "mp3", "m4a", "flac", "wav", "ogg",
-            "aac", "wma", "opus", "ape", "alac"
+            "mp3", "m4a", "mp4", "flac", "wav", "ogg",
+            "aac", "wma", "opus", "ape", "alac", "webm"
         )
+
+        // Extensions to use as search queries (OneDrive search has no OR operator —
+        // must make one call per term and deduplicate results by item ID)
+        private val SEARCH_EXTENSIONS = listOf("mp3", "m4a", "mp4", "flac", "wav", "ogg", "aac", "webm")
     }
 
     /**
-     * List all audio files in OneDrive (search globally)
+     * List all audio files in OneDrive (search globally).
+     * OneDrive search has no OR operator, so we make one call per extension and deduplicate by ID.
      */
     suspend fun listAudioFiles(): Result<List<OneDriveFile>> = withContext(Dispatchers.IO) {
         try {
             val accessToken = authManager.getAccessToken()
-            if (accessToken == null) {
-                return@withContext Result.failure(Exception("Not authenticated"))
-            }
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
 
-            // Search for audio files in OneDrive
-            val url = "$GRAPH_API_BASE/me/drive/root/search(q='.mp3 OR .m4a OR .flac')"
+            val seen = mutableSetOf<String>()
+            val audioFiles = mutableListOf<OneDriveFile>()
 
-            val request = Request.Builder()
-                .url(url)
-                .addHeader("Authorization", "Bearer $accessToken")
-                .build()
+            for (ext in SEARCH_EXTENSIONS) {
+                val url = "$GRAPH_API_BASE/me/drive/root/search(q='.$ext')"
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .build()
 
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    Log.e(TAG, "API request failed: ${response.code} ${response.message}")
-                    return@withContext Result.failure(IOException("API request failed: ${response.code}"))
-                }
-
-                val body = response.body?.string()
-                if (body == null) {
-                    return@withContext Result.failure(IOException("Empty response"))
-                }
-
-                val apiResponse = gson.fromJson(body, DriveItemsResponse::class.java)
-                val audioFiles = apiResponse.value
-                    .filter { it.file != null } // Only files, not folders
-                    .filter { item ->
-                        // Filter by audio extensions
-                        val extension = item.name.substringAfterLast('.', "").lowercase()
-                        extension in AUDIO_EXTENSIONS
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        Log.w(TAG, "Search for .$ext failed: ${response.code}")
+                        return@use
                     }
-                    .map { it.toOneDriveFile() }
-
-                Log.d(TAG, "Found ${audioFiles.size} audio files")
-                Result.success(audioFiles)
+                    val body = response.body?.string() ?: return@use
+                    val apiResponse = gson.fromJson(body, DriveItemsResponse::class.java)
+                    apiResponse.value
+                        .filter { it.file != null }
+                        .filter { item ->
+                            val extension = item.name.substringAfterLast('.', "").lowercase()
+                            extension in AUDIO_EXTENSIONS
+                        }
+                        .forEach { item ->
+                            if (seen.add(item.id)) {
+                                audioFiles.add(item.toOneDriveFile())
+                            }
+                        }
+                }
             }
+
+            Log.d(TAG, "Found ${audioFiles.size} audio files")
+            Result.success(audioFiles)
         } catch (e: Exception) {
             Log.e(TAG, "Error listing files", e)
             Result.failure(e)
