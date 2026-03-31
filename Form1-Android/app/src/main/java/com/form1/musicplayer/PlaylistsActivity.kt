@@ -24,6 +24,7 @@ import com.form1.musicplayer.data.PlaylistEntity
 import com.form1.musicplayer.data.PlaylistRepository
 import com.form1.musicplayer.ui.AppNavigationDrawer
 import com.form1.musicplayer.ui.NavigationScreen
+import com.form1.musicplayer.ui.PlayerBar
 import com.form1.musicplayer.ui.theme.Form1MusicPlayerTheme
 import kotlinx.coroutines.launch
 
@@ -47,6 +48,7 @@ fun PlaylistsScreen(onBackClick: () -> Unit) {
     val context = LocalContext.current
     val repository = remember { PlaylistRepository.getInstance(context) }
     val playlists by repository.getAllPlaylists().collectAsState(initial = emptyList())
+    val isLoading by repository.isLoading.collectAsState()
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
@@ -84,9 +86,30 @@ fun PlaylistsScreen(onBackClick: () -> Unit) {
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Create Playlist")
             }
-        }
+        },
+        bottomBar = { PlayerBar() }
     ) { innerPadding ->
-        if (playlists.isEmpty()) {
+        if (isLoading) {
+            // Loading state — initial scan of OneDrive/local storage in progress
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        text = "Loading playlists…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        } else if (playlists.isEmpty()) {
             // Empty state
             Box(
                 modifier = Modifier

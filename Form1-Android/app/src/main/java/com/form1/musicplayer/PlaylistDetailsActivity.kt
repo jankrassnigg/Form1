@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.*
@@ -27,8 +28,7 @@ import com.form1.musicplayer.data.PlaylistRepository
 import com.form1.musicplayer.data.PlaylistTrack
 import com.form1.musicplayer.player.AudioPlayerViewModel
 import com.form1.musicplayer.player.Track
-import com.form1.musicplayer.ui.AppNavigationDrawer
-import com.form1.musicplayer.ui.NavigationScreen
+import com.form1.musicplayer.ui.PlayerBar
 import com.form1.musicplayer.ui.theme.Form1MusicPlayerTheme
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -66,7 +66,6 @@ fun PlaylistDetailsScreen(
     val context = LocalContext.current
     val repository = remember { PlaylistRepository.getInstance(context) }
     val scope = rememberCoroutineScope()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     var playlist by remember { mutableStateOf<Playlist?>(null) }
     var selectedTracks by remember { mutableStateOf<Set<Long>>(emptySet()) }
@@ -76,32 +75,23 @@ fun PlaylistDetailsScreen(
         playlist = repository.getPlaylistWithTracks(playlistId)
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            AppNavigationDrawer(
-                context = context,
-                currentScreen = NavigationScreen.PLAYLISTS,
-                drawerState = drawerState
-            )
-        }
-    ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                TopAppBar(
-                    title = { Text(playlist?.name ?: "Playlist") },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text(playlist?.name ?: "Playlist") },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-            },
+            )
+        },
+            bottomBar = { PlayerBar() },
             floatingActionButton = {
                 if (selectedTracks.isNotEmpty()) {
                     FloatingActionButton(
@@ -243,7 +233,6 @@ fun PlaylistDetailsScreen(
                     }
                 }
             }
-        }
         }
 
         // Bulk delete confirmation dialog

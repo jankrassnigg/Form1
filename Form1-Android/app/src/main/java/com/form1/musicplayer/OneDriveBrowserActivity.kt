@@ -77,6 +77,7 @@ import com.form1.musicplayer.player.AudioPlayerViewModel
 import com.form1.musicplayer.player.Track
 import com.form1.musicplayer.ui.AppNavigationDrawer
 import com.form1.musicplayer.ui.NavigationScreen
+import com.form1.musicplayer.ui.PlayerBar
 import com.form1.musicplayer.ui.theme.Form1MusicPlayerTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -235,6 +236,7 @@ fun OneDriveBrowserScreen(
                     )
                 )
             },
+            bottomBar = { if (!isFolderPickerMode) PlayerBar() },
             floatingActionButton = {
                 if (isFolderPickerMode) {
                     FloatingActionButton(

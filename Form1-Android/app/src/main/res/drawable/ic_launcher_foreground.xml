@@ -1,16 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Music note icon derived from Form1.svg.
+    Path coordinates are the SVG path after applying the embedded transforms
+    (translate(-260,‑3759) then translate(56,160)) into a clean 20×20 viewport.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:viewportWidth="20"
+    android:viewportHeight="20">
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,30 L54,78 M30,54 L78,54"
-        android:strokeWidth="8"
-        android:strokeColor="#FFFFFF"
-        android:strokeLineCap="round"/>
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M66,42 L75,54 L66,66 Z"/>
+        android:pathData="M20,2.051 L20,11.559 C20,13.91 18.176,15.955 15.888,15.896 C13.267,15.829 11.249,13.166 12.234,10.316 C12.777,8.745 14.298,7.718 15.921,7.692 C16.696,7.681 16.976,7.882 18.003,8.241 L18.003,5.128 C18.003,4.562 17.556,4.103 17.005,4.103 L9.019,4.103 C8.468,4.103 8.020,4.562 8.020,5.128 L8.020,15.659 C8.020,18.021 6.180,20.073 3.882,19.998 C1.681,19.926 -0.086,18.028 -0.003,15.730 C0.090,13.516 1.990,11.842 4.147,11.791 C5.166,11.766 5.352,11.926 6.024,12.344 L6.024,2.051 C6.024,0.918 6.918,0 8.020,0 L18.003,0 C19.107,0 20,0.918 20,2.051" />
 </vector>

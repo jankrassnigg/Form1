@@ -3,6 +3,7 @@ package com.form1.musicplayer.data
 import android.content.Context
 import com.form1.musicplayer.playlist.PlaylistFileManager
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Repository for managing playlists.
@@ -25,6 +26,9 @@ class PlaylistRepository private constructor(context: Context) {
     }
 
     fun getAllPlaylists(): Flow<List<PlaylistEntity>> = fileManager.getAllPlaylists()
+
+    /** True while the initial playlist load from storage is in progress. */
+    val isLoading: StateFlow<Boolean> get() = fileManager.isLoading
 
     suspend fun getPlaylistWithTracks(playlistId: Long): Playlist? =
         fileManager.getPlaylistWithTracks(playlistId)

@@ -64,8 +64,12 @@ class AudioPlayerManager private constructor(private val context: Context) {
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val index = player?.currentMediaItemIndex ?: 0
+            val meta = mediaItem?.mediaMetadata
             _playbackState.value = _playbackState.value.copy(
-                currentTrack = mediaItem?.mediaMetadata?.title?.toString() ?: "",
+                currentTrack = meta?.title?.toString()?.takeIf { it.isNotBlank() }
+                    ?: _playbackState.value.currentTrack,
+                currentArtist = meta?.artist?.toString() ?: "",
+                currentAlbum = meta?.albumTitle?.toString() ?: "",
                 currentTrackIndex = index,
                 hasTrack = mediaItem != null,
                 hasEnded = false
@@ -124,7 +128,7 @@ class AudioPlayerManager private constructor(private val context: Context) {
         player?.let { p ->
             p.stop()
             p.clearMediaItems()
-            _playbackState.value = PlaybackState()
+            _playbackState.value = PlaybackState()  // resets all fields including artist/album
         }
     }
 
@@ -227,6 +231,10 @@ data class PlaybackState(
     val isPlaying: Boolean = false,
     val hasTrack: Boolean = false,
     val currentTrack: String = "",
+    /** Artist name from embedded audio metadata; empty string if unavailable. */
+    val currentArtist: String = "",
+    /** Album name from embedded audio metadata; empty string if unavailable. */
+    val currentAlbum: String = "",
     val isLoading: Boolean = false,
     val hasEnded: Boolean = false,
     val currentPosition: Long = 0L,

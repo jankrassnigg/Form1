@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#6650A4</color>
+    <!-- Form1 purple — matches the music note fill colour in Form1.svg -->
+    <color name="ic_launcher_background">#8080FF</color>
 </resources>

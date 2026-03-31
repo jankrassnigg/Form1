@@ -1,5 +1,6 @@
 package com.form1.musicplayer
 
+import android.content.Intent
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -25,6 +26,22 @@ class PlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
         mediaSession
+
+    /**
+     * Called when the user swipes the app away from the recents list.
+     * Stop playback and remove the notification.
+     *
+     * We intentionally do NOT call super here: MediaSessionService's base implementation
+     * reschedules the service to keep running when a player is active, which would undo
+     * the stopSelf() call.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        mediaSession?.player?.let { player ->
+            player.stop()
+            player.clearMediaItems()
+        }
+        stopSelf()
+    }
 
     override fun onDestroy() {
         mediaSession?.run {

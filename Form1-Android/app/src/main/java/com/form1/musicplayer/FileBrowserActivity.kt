@@ -57,8 +57,10 @@ import com.form1.musicplayer.media.FileBrowserUiState
 import com.form1.musicplayer.media.FileBrowserViewModel
 import com.form1.musicplayer.media.SortOrder
 import com.form1.musicplayer.player.AudioPlayerViewModel
+import com.form1.musicplayer.player.Track
 import com.form1.musicplayer.ui.AppNavigationDrawer
 import com.form1.musicplayer.ui.NavigationScreen
+import com.form1.musicplayer.ui.PlayerBar
 import com.form1.musicplayer.ui.theme.Form1MusicPlayerTheme
 import kotlinx.coroutines.launch
 
@@ -143,7 +145,8 @@ fun FileBrowserScreen(
                         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 )
-            }
+            },
+            bottomBar = { PlayerBar() }
         ) { innerPadding ->
             Column(
                 modifier = Modifier
@@ -244,7 +247,13 @@ private fun LocalFileBrowserContent(
                     items(state.files) { audioFile ->
                         AudioFileItem(
                             audioFile = audioFile,
-                            onClick = { audioPlayerViewModel.playAudio(audioFile.uri, audioFile.title) }
+                            onClick = {
+                                // Play the entire folder as a queue starting from the tapped file
+                                val tracks = state.files.map { f ->
+                                    Track(uri = f.uri, title = f.title, id = f.uri.toString())
+                                }
+                                audioPlayerViewModel.playQueue(tracks, state.files.indexOf(audioFile))
+                            }
                         )
                     }
                 }

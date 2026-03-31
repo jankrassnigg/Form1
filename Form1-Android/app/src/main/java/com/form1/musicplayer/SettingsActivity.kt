@@ -53,6 +53,7 @@ import com.form1.musicplayer.profile.ProfileManager
 import com.form1.musicplayer.profile.StorageType
 import com.form1.musicplayer.ui.AppNavigationDrawer
 import com.form1.musicplayer.ui.NavigationScreen
+import com.form1.musicplayer.ui.PlayerBar
 import com.form1.musicplayer.ui.theme.Form1MusicPlayerTheme
 import kotlinx.coroutines.launch
 
@@ -178,7 +179,8 @@ fun SettingsScreen(
                         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 )
-            }
+            },
+            bottomBar = { PlayerBar() }
         ) { innerPadding ->
             Column(
                 modifier = Modifier

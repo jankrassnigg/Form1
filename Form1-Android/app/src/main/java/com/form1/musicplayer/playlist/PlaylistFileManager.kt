@@ -21,6 +21,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -101,6 +103,10 @@ class PlaylistFileManager private constructor(context: Context) {
     private val playlists = mutableMapOf<String, PlaylistState>()
     private val _flow = MutableStateFlow<List<PlaylistEntity>>(emptyList())
 
+    /** True while the initial load from storage is in progress. */
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
     /** pending debounce jobs keyed by playlist guid */
     private val debounceJobs = mutableMapOf<String, Job>()
 
@@ -149,6 +155,7 @@ class PlaylistFileManager private constructor(context: Context) {
             }
         }
         emitFlow()
+        _isLoading.value = false
     }
 
     // ── Public query API ──────────────────────────────────────────────────────
