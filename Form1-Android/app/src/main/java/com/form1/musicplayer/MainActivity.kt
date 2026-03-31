@@ -33,7 +33,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -171,8 +170,7 @@ fun MusicPlayerHome(
                 onStopClick = { viewModel.stop() },
                 onSkipForward = { viewModel.playNext() },
                 onSkipBackward = { viewModel.playPrevious() },
-                onSeek = { position -> viewModel.seekTo(position) },
-                onVolumeChange = { volume -> viewModel.setVolume(volume) }
+                onSeek = { position -> viewModel.seekTo(position) }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -205,12 +203,10 @@ fun PlaybackControlCard(
     onSkipForward: () -> Unit,
     onSkipBackward: () -> Unit,
     onSeek: (Long) -> Unit,
-    onVolumeChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableStateOf(0L) }
-    var volumeLevel by remember { mutableStateOf(1f) }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -337,36 +333,6 @@ fun PlaybackControlCard(
                 }
             }
 
-            // Volume Control
-            if (playbackState.hasTrack) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = "Volume",
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Slider(
-                        value = volumeLevel,
-                        onValueChange = { value ->
-                            volumeLevel = value
-                            onVolumeChange(value)
-                        },
-                        valueRange = 0f..1f,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "${(volumeLevel * 100).toInt()}%",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-            }
-
             // Status Text
             if (playbackState.hasEnded) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -421,8 +387,7 @@ fun PlaybackControlCardPreview() {
             onStopClick = {},
             onSkipForward = {},
             onSkipBackward = {},
-            onSeek = {},
-            onVolumeChange = {}
+            onSeek = {}
         )
     }
 }
@@ -437,8 +402,7 @@ fun PlaybackControlCardPreviewEmpty() {
             onStopClick = {},
             onSkipForward = {},
             onSkipBackward = {},
-            onSeek = {},
-            onVolumeChange = {}
+            onSeek = {}
         )
     }
 }

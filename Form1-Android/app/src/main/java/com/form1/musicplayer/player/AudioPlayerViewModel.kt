@@ -130,20 +130,6 @@ class AudioPlayerViewModel(application: Application) : AndroidViewModel(applicat
         audioPlayerManager.skipBackward(skipMs)
     }
 
-    /**
-     * Set volume (0.0 to 1.0)
-     */
-    fun setVolume(volume: Float) {
-        audioPlayerManager.setVolume(volume)
-    }
-
-    /**
-     * Get current volume (0.0 to 1.0)
-     */
-    fun getVolume(): Float {
-        return audioPlayerManager.getVolume()
-    }
-
     override fun onCleared() {
         super.onCleared()
         // Don't release the singleton player manager here
