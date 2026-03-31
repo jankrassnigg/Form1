@@ -445,34 +445,36 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
     }
 
     /**
-     * Get download URL for a file
+     * Get a temporary download URL for a OneDrive file.
+     * Uses the `@microsoft.graph.downloadUrl` property from item metadata — avoids
+     * redirect-following issues with HEAD requests and works with OkHttp defaults.
      */
     suspend fun getDownloadUrl(fileId: String): Result<String> = withContext(Dispatchers.IO) {
         try {
             val accessToken = authManager.getAccessToken()
-            if (accessToken == null) {
-                return@withContext Result.failure(Exception("Not authenticated"))
-            }
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
 
-            val url = "$GRAPH_API_BASE/me/drive/items/$fileId/content"
-
+            val url = "$GRAPH_API_BASE/me/drive/items/$fileId"
             val request = Request.Builder()
                 .url(url)
                 .addHeader("Authorization", "Bearer $accessToken")
-                .head() // HEAD request to get redirect URL without downloading
                 .build()
 
             client.newCall(request).execute().use { response ->
-                // Microsoft Graph returns a 302 redirect to the actual download URL
-                val downloadUrl = response.header("Location")
-                if (downloadUrl != null) {
-                    Result.success(downloadUrl)
-                } else {
-                    Result.failure(IOException("No download URL found"))
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(
+                        IOException("Get item failed: ${response.code} ${response.message}")
+                    )
                 }
+                val body = response.body?.string()
+                    ?: return@withContext Result.failure(IOException("Empty response"))
+                val item = gson.fromJson(body, DriveItem::class.java)
+                val downloadUrl = item.downloadUrl
+                    ?: return@withContext Result.failure(IOException("No @microsoft.graph.downloadUrl in response"))
+                Result.success(downloadUrl)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting download URL", e)
+            Log.e(TAG, "Error getting download URL for $fileId", e)
             Result.failure(e)
         }
     }

@@ -3,48 +3,44 @@ package com.form1.musicplayer.playlist
 /**
  * Root object for a .f2pl playlist file.
  * Filename convention: "YYYY-MM-DD-HH-mm-ss - Playlist Name.f2pl"
+ *
+ * There is no top-level "name" field — the playlist name is derived from the last
+ * "RenamePlaylist" modification (its [F2plMod.misc] field).
  */
 data class F2plFile(
     val version: Int = 1,
     val playlistGuid: String,
-    val name: String,
-    val fileRefs: List<F2plFileRef> = emptyList(),
+    val references: List<F2plRef> = emptyList(),
     val modifications: List<F2plMod> = emptyList()
 )
 
 /**
- * A canonical reference to one audio file. Multiple paths/IDs let the app locate
- * the same file on different devices or after it has been moved/renamed.
+ * A canonical reference to one audio file.
+ * The index into [F2plFile.references] is implicit (array position).
  *
- * [index] is the stable per-playlist integer key used by [F2plMod.fileIndex].
+ * [display]        — display title shown in the UI
+ * [oneDriveItemId] — stable OneDrive item ID (null for local files)
+ * [relativePaths]  — relative path(s) from the OneDrive music folder or local root
  */
-data class F2plFileRef(
-    val index: Int,
-    val relativePaths: List<String> = emptyList(),  // e.g. ["Artist/Album/song.mp3"]
+data class F2plRef(
+    val display: String,
     val oneDriveItemId: String? = null,
-    val oneDriveDriveId: String? = null,
-    val pcGuid: String? = null                       // future: PC-app song GUID
+    val relativePaths: List<String> = emptyList()
 )
 
 /**
  * A single playlist event (append-only log).
  *
- * [modGuid]   — UUID for deduplication during merge
- * [ts]        — ISO-8601 timestamp, used for ordering
- * [op]        — "AddSong" | "RemoveSong" | "RenamePlaylist"
- * [fileIndex] — index into [F2plFile.fileRefs]; required for AddSong / RemoveSong
- * [name]      — new playlist name; required for RenamePlaylist
- * [title]     — display title stored with AddSong (redundant but handy)
- * [source]    — "onedrive" | "local"; stored with AddSong
- * [uri]       — cached playback URL stored with AddSong (may expire for OneDrive)
+ * [modGuid] — UUID for deduplication during merge
+ * [ts]      — ISO-8601 UTC timestamp, used for ordering
+ * [op]      — "AddSong" | "RemoveSong" | "RenamePlaylist"
+ * [ref]     — index into [F2plFile.references]; required for AddSong / RemoveSong
+ * [misc]    — new playlist display name; required for RenamePlaylist
  */
 data class F2plMod(
     val modGuid: String,
     val ts: String,
     val op: String,
-    val fileIndex: Int? = null,
-    val name: String? = null,
-    val title: String? = null,
-    val source: String? = null,
-    val uri: String? = null
+    val ref: Int? = null,
+    val misc: String? = null
 )

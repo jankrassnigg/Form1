@@ -30,6 +30,9 @@ import com.form1.musicplayer.player.Track
 import com.form1.musicplayer.ui.AppNavigationDrawer
 import com.form1.musicplayer.ui.NavigationScreen
 import com.form1.musicplayer.ui.theme.Form1MusicPlayerTheme
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 class PlaylistDetailsActivity : ComponentActivity() {
@@ -162,14 +165,10 @@ fun PlaylistDetailsScreen(
                         // Play All button
                         Button(
                             onClick = {
-                                val tracks = pl.tracks.map { track ->
-                                    Track(
-                                        uri = Uri.parse(track.uri),
-                                        title = track.title,
-                                        id = track.sourceId
-                                    )
+                                scope.launch {
+                                    val tracks = resolvePlaybackTracks(pl.tracks, repository)
+                                    if (tracks.isNotEmpty()) audioPlayerViewModel.playQueue(tracks, 0)
                                 }
-                                audioPlayerViewModel.playQueue(tracks, 0)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -228,16 +227,11 @@ fun PlaylistDetailsScreen(
                                 }
                             },
                             onClick = {
-                                // Play from this track onwards
-                                val tracks = pl.tracks.map { t ->
-                                    Track(
-                                        uri = Uri.parse(t.uri),
-                                        title = t.title,
-                                        id = t.sourceId
-                                    )
+                                scope.launch {
+                                    val tracks = resolvePlaybackTracks(pl.tracks, repository)
+                                    val startIndex = pl.tracks.indexOf(track)
+                                    if (tracks.isNotEmpty()) audioPlayerViewModel.playQueue(tracks, startIndex.coerceAtMost(tracks.size - 1))
                                 }
-                                val startIndex = pl.tracks.indexOf(track)
-                                audioPlayerViewModel.playQueue(tracks, startIndex)
                             },
                             onDelete = {
                                 scope.launch {
@@ -286,6 +280,42 @@ fun PlaylistDetailsScreen(
             )
         }
     }
+}
+
+/**
+ * Resolves playback URIs for all tracks in parallel.
+ * OneDrive tracks: fetches a fresh download URL via the Graph API.
+ * Local tracks: uses sourceId directly as a file URI.
+ * Tracks whose URL cannot be resolved are skipped (logged as warnings).
+ */
+private suspend fun resolvePlaybackTracks(
+    tracks: List<PlaylistTrack>,
+    repository: PlaylistRepository
+): List<Track> = coroutineScope {
+    tracks.map { track ->
+        async {
+            when (track.source) {
+                "local" -> Track(
+                    uri = Uri.parse(track.sourceId),
+                    title = track.title,
+                    id = track.sourceId
+                )
+                else -> {
+                    val result = repository.getDownloadUrl(track.sourceId)
+                    if (result.isSuccess) {
+                        Track(
+                            uri = Uri.parse(result.getOrThrow()),
+                            title = track.title,
+                            id = track.sourceId
+                        )
+                    } else {
+                        android.util.Log.w("PlaylistDetails", "Could not resolve URL for ${track.title}: ${result.exceptionOrNull()?.message}")
+                        null
+                    }
+                }
+            }
+        }
+    }.awaitAll().filterNotNull()
 }
 
 @Composable

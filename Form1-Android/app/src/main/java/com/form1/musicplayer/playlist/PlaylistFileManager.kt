@@ -12,6 +12,8 @@ import com.form1.musicplayer.profile.ProfileConfig
 import com.form1.musicplayer.profile.ProfileManager
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
+import com.google.gson.JsonSerializer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,7 +21,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -62,7 +63,37 @@ class PlaylistFileManager private constructor(context: Context) {
     private val oneDriveService = OneDriveService(authManager)
     private val profileManager = ProfileManager(context, profileConfig, oneDriveService)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
+    private val gson: Gson = GsonBuilder()
+        .setPrettyPrinting()
+        .registerTypeAdapter(F2plFile::class.java, JsonSerializer<F2plFile> { src, _, ctx ->
+            JsonObject().apply {
+                addProperty("version", src.version)
+                addProperty("playlistGuid", src.playlistGuid)
+                add("references", ctx.serialize(src.references))
+                add("modifications", ctx.serialize(src.modifications))
+            }
+        })
+        .registerTypeAdapter(F2plRef::class.java, JsonSerializer<F2plRef> { src, _, _ ->
+            JsonObject().apply {
+                addProperty("display", src.display)
+                if (src.oneDriveItemId != null) addProperty("oneDriveItemId", src.oneDriveItemId)
+                if (src.relativePaths.isNotEmpty()) {
+                    add("relativePaths", com.google.gson.JsonArray().also { arr ->
+                        src.relativePaths.forEach { arr.add(it) }
+                    })
+                }
+            }
+        })
+        .registerTypeAdapter(F2plMod::class.java, JsonSerializer<F2plMod> { src, _, _ ->
+            JsonObject().apply {
+                addProperty("modGuid", src.modGuid)
+                addProperty("op", src.op)
+                addProperty("ts", src.ts)
+                if (src.ref != null) addProperty("ref", src.ref)
+                if (src.misc != null) addProperty("misc", src.misc)
+            }
+        })
+        .create()
 
     // ── In-memory state ───────────────────────────────────────────────────────
 
@@ -76,6 +107,8 @@ class PlaylistFileManager private constructor(context: Context) {
     private data class PlaylistState(
         val guid: String,
         var file: F2plFile,
+        /** resolved display name — cached to avoid re-scanning mods on every emitFlow() */
+        var name: String,
         /** file names (without path) loaded from disk; used to delete stale files after compact */
         val loadedFileNames: MutableList<String> = mutableListOf()
     )
@@ -106,6 +139,7 @@ class PlaylistFileManager private constructor(context: Context) {
             val state = PlaylistState(
                 guid = guid,
                 file = merged,
+                name = nameFromMods(merged.modifications),
                 loadedFileNames = pairs.map { it.first }.toMutableList()
             )
             playlists[guid] = state
@@ -126,7 +160,7 @@ class PlaylistFileManager private constructor(context: Context) {
             val state = playlists.values.firstOrNull { toId(it.guid) == playlistId } ?: return@withContext null
             Playlist(
                 id = playlistId,
-                name = state.file.name,
+                name = state.name,
                 tracks = reconstructTracks(state.file, playlistId),
                 createdAt = 0L,
                 updatedAt = 0L
@@ -137,8 +171,14 @@ class PlaylistFileManager private constructor(context: Context) {
 
     suspend fun createPlaylist(name: String): Long {
         val guid = UUID.randomUUID().toString()
-        val file = F2plFile(playlistGuid = guid, name = name)
-        val state = PlaylistState(guid = guid, file = file)
+        val renameMod = F2plMod(
+            modGuid = UUID.randomUUID().toString(),
+            ts = nowIso(),
+            op = "RenamePlaylist",
+            misc = name
+        )
+        val file = F2plFile(playlistGuid = guid, modifications = listOf(renameMod))
+        val state = PlaylistState(guid = guid, file = file, name = name)
         playlists[guid] = state
         emitFlow()
         saveNow(state)   // immediate — don't risk losing a new playlist to the debounce window
@@ -147,8 +187,9 @@ class PlaylistFileManager private constructor(context: Context) {
 
     suspend fun renamePlaylist(playlistId: Long, newName: String) {
         val state = playlists.values.firstOrNull { toId(it.guid) == playlistId } ?: return
-        val mod = F2plMod(modGuid = UUID.randomUUID().toString(), ts = nowIso(), op = "RenamePlaylist", name = newName)
-        state.file = state.file.copy(name = newName, modifications = state.file.modifications + mod)
+        val mod = F2plMod(modGuid = UUID.randomUUID().toString(), ts = nowIso(), op = "RenamePlaylist", misc = newName)
+        state.file = state.file.copy(modifications = state.file.modifications + mod)
+        state.name = newName
         emitFlow()
         saveNow(state)
     }
@@ -168,31 +209,28 @@ class PlaylistFileManager private constructor(context: Context) {
 
     suspend fun addTracksToPlaylist(playlistId: Long, tracks: List<TrackInfo>) {
         val state = playlists.values.firstOrNull { toId(it.guid) == playlistId } ?: return
-        var nextIndex = (state.file.fileRefs.maxOfOrNull { it.index } ?: -1) + 1
-        val newRefs = mutableListOf<F2plFileRef>()
+        val newRefs = mutableListOf<F2plRef>()
         val newMods = mutableListOf<F2plMod>()
+        var nextRefIndex = state.file.references.size
 
         for (track in tracks) {
-            val ref = F2plFileRef(
-                index = nextIndex,
-                relativePaths = listOfNotNull(track.uri.takeIf { track.source == "local" }),
-                oneDriveItemId = track.sourceId.takeIf { track.source == "onedrive" }
+            val ref = F2plRef(
+                display = track.title,
+                oneDriveItemId = track.sourceId.takeIf { track.source == "onedrive" },
+                relativePaths = listOfNotNull(track.uri.takeIf { track.source == "local" })
             )
             newRefs += ref
             newMods += F2plMod(
                 modGuid = UUID.randomUUID().toString(),
                 ts = nowIso(),
                 op = "AddSong",
-                fileIndex = nextIndex,
-                title = track.title,
-                source = track.source,
-                uri = track.uri
+                ref = nextRefIndex
             )
-            nextIndex++
+            nextRefIndex++
         }
 
         state.file = state.file.copy(
-            fileRefs = state.file.fileRefs + newRefs,
+            references = state.file.references + newRefs,
             modifications = state.file.modifications + newMods
         )
         emitFlow()
@@ -202,11 +240,14 @@ class PlaylistFileManager private constructor(context: Context) {
     /**
      * Remove the track at [position] (0-indexed in the current displayed list) from the playlist.
      */
+    suspend fun getDownloadUrl(itemId: String): Result<String> =
+        oneDriveService.getDownloadUrl(itemId)
+
     suspend fun removeTrackAtPosition(playlistId: Long, position: Int) {
         val state = playlists.values.firstOrNull { toId(it.guid) == playlistId } ?: return
         val active = buildActiveList(state.file)
-        val fileRefIndex = active.getOrNull(position) ?: return
-        val mod = F2plMod(modGuid = UUID.randomUUID().toString(), ts = nowIso(), op = "RemoveSong", fileIndex = fileRefIndex)
+        val refIndex = active.getOrNull(position) ?: return
+        val mod = F2plMod(modGuid = UUID.randomUUID().toString(), ts = nowIso(), op = "RemoveSong", ref = refIndex)
         state.file = state.file.copy(modifications = state.file.modifications + mod)
         emitFlow()
         saveNow(state)
@@ -215,16 +256,16 @@ class PlaylistFileManager private constructor(context: Context) {
     // ── Internal helpers ──────────────────────────────────────────────────────
 
     /**
-     * Builds the ordered list of active fileRef indices by replaying the modification log.
-     * RemoveSong removes the last occurrence of the given fileIndex.
+     * Builds the ordered list of active reference indices by replaying the modification log.
+     * RemoveSong removes the last occurrence of the given ref index.
      */
     private fun buildActiveList(file: F2plFile): List<Int> {
         val active = mutableListOf<Int>()
         for (mod in file.modifications.sortedBy { it.ts }) {
             when (mod.op) {
-                "AddSong" -> mod.fileIndex?.let { active += it }
-                "RemoveSong" -> mod.fileIndex?.let { fi ->
-                    val idx = active.indexOfLast { it == fi }
+                "AddSong" -> mod.ref?.let { active += it }
+                "RemoveSong" -> mod.ref?.let { ri ->
+                    val idx = active.indexOfLast { it == ri }
                     if (idx >= 0) active.removeAt(idx)
                 }
             }
@@ -234,19 +275,15 @@ class PlaylistFileManager private constructor(context: Context) {
 
     private fun reconstructTracks(file: F2plFile, playlistId: Long): List<PlaylistTrack> {
         val active = buildActiveList(file)
-        return active.mapIndexed { pos, fileRefIndex ->
-            val ref = file.fileRefs.firstOrNull { it.index == fileRefIndex }
-            val addMod = file.modifications
-                .filter { it.op == "AddSong" && it.fileIndex == fileRefIndex }
-                .lastOrNull()
+        return active.mapIndexed { pos, refIndex ->
+            val ref = file.references.getOrNull(refIndex)
+            val source = if (ref?.oneDriveItemId != null) "onedrive" else "local"
             PlaylistTrack(
                 id = pos.toLong(),              // position used as ID for deletion
                 playlistId = playlistId,
-                title = addMod?.title
-                    ?: ref?.relativePaths?.firstOrNull()?.substringAfterLast('/')
-                    ?: "Unknown",
-                source = addMod?.source ?: "onedrive",
-                uri = addMod?.uri ?: "",
+                title = ref?.display ?: "Unknown",
+                source = source,
+                uri = "",                       // not stored; resolved at playback time
                 sourceId = ref?.oneDriveItemId ?: ref?.relativePaths?.firstOrNull() ?: "",
                 position = pos
             )
@@ -256,20 +293,46 @@ class PlaylistFileManager private constructor(context: Context) {
     private fun merge(files: List<F2plFile>): F2plFile {
         if (files.size == 1) return files[0]
         val base = files.first()
-        val allRefs = files.flatMap { it.fileRefs }.distinctBy { it.index }.sortedBy { it.index }
-        val allMods = files.flatMap { it.modifications }.distinctBy { it.modGuid }.sortedBy { it.ts }
-        val name = allMods.lastOrNull { it.op == "RenamePlaylist" }?.name ?: base.name
+
+        // Collect unique refs; dedup by (display, oneDriveItemId) pair
+        val uniqueRefs = files.flatMap { it.references }
+            .distinctBy { it.display to it.oneDriveItemId }
+
+        // Build old-index-to-new-index remapping per file
+        // For each file, its refs are at positions 0..n-1 in that file's list.
+        // After dedup, find their new position in uniqueRefs.
+        val fileMods = files.flatMap { file ->
+            file.modifications.map { mod ->
+                if (mod.ref == null) {
+                    mod
+                } else {
+                    val oldRef = file.references.getOrNull(mod.ref)
+                    val newIdx = if (oldRef != null) {
+                        uniqueRefs.indexOfFirst {
+                            it.display == oldRef.display && it.oneDriveItemId == oldRef.oneDriveItemId
+                        }.takeIf { it >= 0 } ?: mod.ref
+                    } else {
+                        mod.ref
+                    }
+                    mod.copy(ref = newIdx)
+                }
+            }
+        }
+
+        val allMods = fileMods.distinctBy { it.modGuid }.sortedBy { it.ts }
         return F2plFile(
             version = 1,
             playlistGuid = base.playlistGuid,
-            name = name,
-            fileRefs = allRefs,
+            references = uniqueRefs,
             modifications = allMods
         )
     }
 
+    private fun nameFromMods(mods: List<F2plMod>): String =
+        mods.sortedBy { it.ts }.lastOrNull { it.op == "RenamePlaylist" }?.misc ?: "Unnamed"
+
     private suspend fun compact(state: PlaylistState) {
-        val newName = buildFileName(state.file)
+        val newName = buildFileName(state)
         val json = gson.toJson(state.file)
         val writeResult = profileManager.writeFile(newName, json)
         if (writeResult.isFailure) {
@@ -302,9 +365,9 @@ class PlaylistFileManager private constructor(context: Context) {
 
     private suspend fun save(state: PlaylistState) {
         try {
-            val newName = buildFileName(state.file)
+            val newName = buildFileName(state)
             val json = gson.toJson(state.file)
-            Log.d(TAG, "Saving playlist '${state.file.name}' → $newName")
+            Log.d(TAG, "Saving playlist '${state.name}' → $newName")
             val result = profileManager.writeFile(newName, json)
             if (result.isFailure) {
                 Log.e(TAG, "writeFile failed for ${state.guid}", result.exceptionOrNull())
@@ -326,7 +389,7 @@ class PlaylistFileManager private constructor(context: Context) {
         val entities = playlists.values.map { state ->
             PlaylistEntity(
                 id = toId(state.guid),
-                name = state.file.name,
+                name = state.name,
                 createdAt = 0L,
                 updatedAt = 0L
             )
@@ -346,12 +409,12 @@ class PlaylistFileManager private constructor(context: Context) {
         return sdf.format(Date())
     }
 
-    private fun buildFileName(file: F2plFile): String {
+    private fun buildFileName(state: PlaylistState): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }
         val ts = sdf.format(Date())
-        val safeName = file.name.replace(Regex("[/\\\\:*?\"<>|]"), "_")
+        val safeName = state.name.replace(Regex("[/\\\\:*?\"<>|]"), "_")
         return "$ts - $safeName.$EXTENSION"
     }
 }

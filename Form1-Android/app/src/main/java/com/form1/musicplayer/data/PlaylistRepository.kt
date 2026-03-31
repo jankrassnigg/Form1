@@ -45,6 +45,10 @@ class PlaylistRepository private constructor(context: Context) {
      */
     suspend fun removeTrackFromPlaylist(playlistId: Long, position: Int) =
         fileManager.removeTrackAtPosition(playlistId, position)
+
+    /** Resolve a temporary OneDrive download URL for [itemId]. */
+    suspend fun getDownloadUrl(itemId: String): Result<String> =
+        fileManager.getDownloadUrl(itemId)
 }
 
 /** Helper data class for adding tracks to playlists. */
