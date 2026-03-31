@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.devtools.ksp") version "2.1.0-1.0.29"
 }
 
 android {
@@ -33,6 +32,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -75,11 +75,6 @@ dependencies {
     // Permissions handling
     implementation("com.google.accompanist:accompanist-permissions:0.36.0")
 
-    // Room Database
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
-
     // Microsoft Authentication Library (MSAL) for OneDrive
     implementation("com.microsoft.identity.client:msal:5.3.0")
 
@@ -91,6 +86,9 @@ dependencies {
 
     // JSON parsing
     implementation("com.google.code.gson:gson:2.11.0")
+
+    // Java 8+ API desugaring (for java.time on API < 26)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

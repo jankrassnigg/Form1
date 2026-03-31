@@ -1,122 +1,56 @@
 package com.form1.musicplayer.data
 
 import android.content.Context
+import com.form1.musicplayer.playlist.PlaylistFileManager
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 /**
- * Repository for managing playlists
+ * Repository for managing playlists.
+ *
+ * Backed by [PlaylistFileManager] — playlists are persisted as .f2pl JSON files
+ * in the user's profile directory (local or OneDrive).
  */
 class PlaylistRepository private constructor(context: Context) {
 
-    private val database = PlaylistDatabase.getInstance(context)
-    private val playlistDao = database.playlistDao()
+    private val fileManager = PlaylistFileManager.getInstance(context)
 
     companion object {
         @Volatile
         private var instance: PlaylistRepository? = null
 
-        fun getInstance(context: Context): PlaylistRepository {
-            return instance ?: synchronized(this) {
+        fun getInstance(context: Context): PlaylistRepository =
+            instance ?: synchronized(this) {
                 instance ?: PlaylistRepository(context.applicationContext).also { instance = it }
             }
-        }
     }
+
+    fun getAllPlaylists(): Flow<List<PlaylistEntity>> = fileManager.getAllPlaylists()
+
+    suspend fun getPlaylistWithTracks(playlistId: Long): Playlist? =
+        fileManager.getPlaylistWithTracks(playlistId)
+
+    suspend fun createPlaylist(name: String): Long = fileManager.createPlaylist(name)
+
+    suspend fun updatePlaylist(playlistId: Long, newName: String) =
+        fileManager.renamePlaylist(playlistId, newName)
+
+    suspend fun deletePlaylist(playlistId: Long) = fileManager.deletePlaylist(playlistId)
+
+    suspend fun addTracksToPlaylist(playlistId: Long, tracks: List<TrackInfo>) =
+        fileManager.addTracksToPlaylist(playlistId, tracks)
 
     /**
-     * Get all playlists as a Flow
+     * Remove the track at [position] (0-indexed in the current displayed list).
+     * [playlistId] is required to locate the correct playlist.
      */
-    fun getAllPlaylists(): Flow<List<PlaylistEntity>> {
-        return playlistDao.getAllPlaylists()
-    }
-
-    /**
-     * Get a single playlist with its tracks
-     */
-    suspend fun getPlaylistWithTracks(playlistId: Long): Playlist? {
-        return playlistDao.getPlaylistWithTracks(playlistId)
-    }
-
-    /**
-     * Create a new playlist
-     */
-    suspend fun createPlaylist(name: String): Long {
-        val playlist = PlaylistEntity(name = name)
-        return playlistDao.insertPlaylist(playlist)
-    }
-
-    /**
-     * Update playlist name
-     */
-    suspend fun updatePlaylist(playlistId: Long, newName: String) {
-        val playlist = playlistDao.getPlaylist(playlistId) ?: return
-        playlistDao.updatePlaylist(
-            playlist.copy(
-                name = newName,
-                updatedAt = System.currentTimeMillis()
-            )
-        )
-    }
-
-    /**
-     * Delete a playlist
-     */
-    suspend fun deletePlaylist(playlistId: Long) {
-        val playlist = playlistDao.getPlaylist(playlistId) ?: return
-        playlistDao.deletePlaylist(playlist)
-    }
-
-    /**
-     * Add tracks to a playlist
-     */
-    suspend fun addTracksToPlaylist(
-        playlistId: Long,
-        tracks: List<TrackInfo>
-    ) {
-        val currentMaxPosition = playlistDao.getMaxPosition(playlistId) ?: -1
-        val trackEntities = tracks.mapIndexed { index, trackInfo ->
-            PlaylistTrackEntity(
-                playlistId = playlistId,
-                title = trackInfo.title,
-                source = trackInfo.source,
-                uri = trackInfo.uri,
-                sourceId = trackInfo.sourceId,
-                position = currentMaxPosition + 1 + index
-            )
-        }
-        playlistDao.insertTracks(trackEntities)
-
-        // Update playlist timestamp
-        val playlist = playlistDao.getPlaylist(playlistId) ?: return
-        playlistDao.updatePlaylist(playlist.copy(updatedAt = System.currentTimeMillis()))
-    }
-
-    /**
-     * Remove a track from playlist
-     */
-    suspend fun removeTrackFromPlaylist(trackId: Long) {
-        val track = playlistDao.getTracksForPlaylist(0).find { it.id == trackId } ?: return
-        playlistDao.deleteTrack(track)
-    }
-
-    /**
-     * Clear all tracks from a playlist
-     */
-    suspend fun clearPlaylist(playlistId: Long) {
-        playlistDao.deleteAllTracksFromPlaylist(playlistId)
-
-        // Update playlist timestamp
-        val playlist = playlistDao.getPlaylist(playlistId) ?: return
-        playlistDao.updatePlaylist(playlist.copy(updatedAt = System.currentTimeMillis()))
-    }
+    suspend fun removeTrackFromPlaylist(playlistId: Long, position: Int) =
+        fileManager.removeTrackAtPosition(playlistId, position)
 }
 
-/**
- * Helper data class for adding tracks to playlists
- */
+/** Helper data class for adding tracks to playlists. */
 data class TrackInfo(
     val title: String,
-    val source: String, // "local" or "onedrive"
+    val source: String,  // "local" or "onedrive"
     val uri: String,
     val sourceId: String
 )

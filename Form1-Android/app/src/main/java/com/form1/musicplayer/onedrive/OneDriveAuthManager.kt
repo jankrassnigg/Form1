@@ -149,13 +149,27 @@ class OneDriveAuthManager(private val context: Context) {
     }
 
     /**
-     * Get access token (silently if possible)
+     * Get access token (silently if possible).
+     * Auto-initializes MSAL if not yet done (safe to call from any context).
      */
-    suspend fun getAccessToken(): String? = suspendCancellableCoroutine { continuation ->
+    suspend fun getAccessToken(): String? {
+        if (msalApp == null) {
+            val ok = initialize()
+            if (!ok) {
+                Log.w(TAG, "getAccessToken: MSAL initialization failed")
+                return null
+            }
+        }
+        return suspendCancellableCoroutine { continuation ->
+            acquireTokenSilent(continuation)
+        }
+    }
+
+    private fun acquireTokenSilent(continuation: CancellableContinuation<String?>) {
         val app = msalApp
         if (app == null) {
             continuation.resume(null)
-            return@suspendCancellableCoroutine
+            return
         }
 
         try {
@@ -163,7 +177,7 @@ class OneDriveAuthManager(private val context: Context) {
             if (account == null) {
                 Log.w(TAG, "No account found")
                 continuation.resume(null)
-                return@suspendCancellableCoroutine
+                return
             }
 
             val parameters = AcquireTokenSilentParameters.Builder()

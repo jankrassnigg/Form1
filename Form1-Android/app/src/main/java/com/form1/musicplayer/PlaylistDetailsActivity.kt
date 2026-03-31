@@ -241,7 +241,7 @@ fun PlaylistDetailsScreen(
                             },
                             onDelete = {
                                 scope.launch {
-                                    repository.removeTrackFromPlaylist(track.id)
+                                    repository.removeTrackFromPlaylist(playlistId, track.position)
                                     playlist = repository.getPlaylistWithTracks(playlistId)
                                 }
                             }
@@ -262,9 +262,13 @@ fun PlaylistDetailsScreen(
                     TextButton(
                         onClick = {
                             scope.launch {
-                                selectedTracks.forEach { trackId ->
-                                    repository.removeTrackFromPlaylist(trackId)
-                                }
+                                // selectedTracks contains track.id values which equal track.position
+                                selectedTracks
+                                    .map { it.toInt() }
+                                    .sortedDescending() // remove from end first to keep positions stable
+                                    .forEach { pos ->
+                                        repository.removeTrackFromPlaylist(playlistId, pos)
+                                    }
                                 playlist = repository.getPlaylistWithTracks(playlistId)
                                 selectedTracks = emptySet()
                                 showDeleteDialog = false
