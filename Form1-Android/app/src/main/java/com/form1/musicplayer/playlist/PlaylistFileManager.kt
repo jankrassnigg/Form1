@@ -6,8 +6,7 @@ import com.form1.musicplayer.data.Playlist
 import com.form1.musicplayer.data.PlaylistEntity
 import com.form1.musicplayer.data.PlaylistTrack
 import com.form1.musicplayer.data.TrackInfo
-import com.form1.musicplayer.onedrive.OneDriveAuthManager
-import com.form1.musicplayer.onedrive.OneDriveService
+import com.form1.musicplayer.onedrive.OneDriveCacheManager
 import com.form1.musicplayer.profile.ProfileConfig
 import com.form1.musicplayer.profile.ProfileManager
 import com.google.gson.Gson
@@ -61,9 +60,8 @@ class PlaylistFileManager private constructor(context: Context) {
     // ── Dependencies ──────────────────────────────────────────────────────────
 
     private val profileConfig = ProfileConfig(context)
-    private val authManager = OneDriveAuthManager(context)
-    private val oneDriveService = OneDriveService(authManager)
-    private val profileManager = ProfileManager(context, profileConfig, oneDriveService)
+    private val cacheManager = OneDriveCacheManager.getInstance(context)
+    private val profileManager = ProfileManager(context, profileConfig, cacheManager)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val gson: Gson = GsonBuilder()
         .setPrettyPrinting()
@@ -170,7 +168,8 @@ class PlaylistFileManager private constructor(context: Context) {
                 name = state.name,
                 tracks = reconstructTracks(state.file, playlistId),
                 createdAt = 0L,
-                updatedAt = 0L
+                updatedAt = 0L,
+                offlineAvailable = offlineFromMods(state.file.modifications)
             )
         }
 
@@ -247,8 +246,20 @@ class PlaylistFileManager private constructor(context: Context) {
     /**
      * Remove the track at [position] (0-indexed in the current displayed list) from the playlist.
      */
+    suspend fun setOfflineAvailable(playlistId: Long, enabled: Boolean) {
+        val state = playlists.values.firstOrNull { toId(it.guid) == playlistId } ?: return
+        val mod = F2plMod(
+            modGuid = UUID.randomUUID().toString(),
+            ts = nowIso(),
+            op = "SetOfflineAvailable",
+            misc = enabled.toString()
+        )
+        state.file = state.file.copy(modifications = state.file.modifications + mod)
+        saveNow(state)
+    }
+
     suspend fun getDownloadUrl(itemId: String): Result<String> =
-        oneDriveService.getDownloadUrl(itemId)
+        cacheManager.getDownloadUrl(itemId)
 
     suspend fun removeTrackAtPosition(playlistId: Long, position: Int) {
         val state = playlists.values.firstOrNull { toId(it.guid) == playlistId } ?: return
@@ -337,6 +348,9 @@ class PlaylistFileManager private constructor(context: Context) {
 
     private fun nameFromMods(mods: List<F2plMod>): String =
         mods.sortedBy { it.ts }.lastOrNull { it.op == "RenamePlaylist" }?.misc ?: "Unnamed"
+
+    private fun offlineFromMods(mods: List<F2plMod>): Boolean =
+        mods.sortedBy { it.ts }.lastOrNull { it.op == "SetOfflineAvailable" }?.misc == "true"
 
     private suspend fun compact(state: PlaylistState) {
         val newName = buildFileName(state)

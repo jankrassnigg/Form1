@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.DrawerValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.form1.musicplayer.data.PlaylistRepository
 import com.form1.musicplayer.player.AudioPlayerViewModel
 import com.form1.musicplayer.ui.AppNavigationDrawer
 import com.form1.musicplayer.ui.NavigationScreen
@@ -53,6 +54,9 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Eagerly initialize PlaylistRepository so playlist files start loading from storage
+        // (local or OneDrive) while the user is on the home screen, before they open Playlists.
+        PlaylistRepository.getInstance(this)
         enableEdgeToEdge()
         setContent {
             Form1MusicPlayerTheme {

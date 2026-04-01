@@ -2,7 +2,7 @@ package com.form1.musicplayer.profile
 
 import android.content.Context
 import android.util.Log
-import com.form1.musicplayer.onedrive.OneDriveService
+import com.form1.musicplayer.onedrive.OneDriveCacheManager
 import kotlinx.coroutines.flow.first
 import java.io.File
 
@@ -17,7 +17,7 @@ import java.io.File
 class ProfileManager(
     private val context: Context,
     private val profileConfig: ProfileConfig,
-    private val oneDriveService: OneDriveService
+    private val cache: OneDriveCacheManager
 ) {
 
     companion object {
@@ -177,30 +177,34 @@ class ProfileManager(
     // ── OneDrive implementation ────────────────────────────────────────────────
 
     private suspend fun listOneDriveFiles(folderId: String, extension: String): Result<List<String>> {
-        return oneDriveService.listFilesInFolder(folderId)
-            .map { files -> files.filter { it.endsWith(".$extension") } }
+        return cache.listFilesInFolderWithIds(folderId)
+            .map { files -> files.map { it.first }.filter { it.endsWith(".$extension") } }
     }
 
     private suspend fun readOneDriveFile(folderId: String, name: String): Result<String> {
-        // Find the item ID by listing the folder
         val itemId = findOneDriveItemId(folderId, name)
             ?: return Result.failure(Exception("File not found on OneDrive: $name"))
-        return oneDriveService.downloadFileContent(itemId)
+        // Playlist files are immutable (identified by timestamp), so cache indefinitely
+        return cache.getTextFileContent(itemId)
     }
 
     private suspend fun writeOneDriveFile(folderId: String, name: String, content: String): Result<Unit> {
-        return oneDriveService.uploadTextFile(folderId, name, content)
+        return cache.service.uploadTextFile(folderId, name, content).also { result ->
+            if (result.isSuccess) cache.invalidateFileList(folderId)
+        }
     }
 
     private suspend fun deleteOneDriveFile(folderId: String, name: String): Result<Unit> {
         val itemId = findOneDriveItemId(folderId, name)
             ?: return Result.success(Unit) // already gone
-        return oneDriveService.deleteFile(itemId)
+        return cache.service.deleteFile(itemId).also { result ->
+            if (result.isSuccess) cache.invalidateFileList(folderId)
+        }
     }
 
     private suspend fun findOneDriveItemId(folderId: String, name: String): String? {
-        val result = oneDriveService.listFilesInFolderWithIds(folderId)
-        return result.getOrNull()?.firstOrNull { it.first == name }?.second
+        return cache.listFilesInFolderWithIds(folderId)
+            .getOrNull()?.firstOrNull { it.first == name }?.second
     }
 
     // ── Migration helpers ──────────────────────────────────────────────────────
@@ -212,20 +216,19 @@ class ProfileManager(
                 Log.w(TAG, "Could not read local file for migration: ${file.name}", e)
                 continue
             }
-            val uploadResult = oneDriveService.uploadTextFile(folderId, file.name, content)
+            val uploadResult = cache.service.uploadTextFile(folderId, file.name, content)
             if (uploadResult.isFailure) {
                 Log.w(TAG, "Failed to upload ${file.name} during migration", uploadResult.exceptionOrNull())
-                // Continue migrating other files even if one fails
             }
         }
+        cache.invalidateFileList(folderId)
         return Result.success(Unit)
     }
 
-    private suspend fun migrateOneDriveToLocal(folderId: String): Unit {
-        val filesResult = oneDriveService.listFilesInFolderWithIds(folderId)
-        val files = filesResult.getOrNull() ?: return
+    private suspend fun migrateOneDriveToLocal(folderId: String) {
+        val files = cache.listFilesInFolderWithIds(folderId).getOrNull() ?: return
         for ((name, itemId) in files) {
-            val contentResult = oneDriveService.downloadFileContent(itemId)
+            val contentResult = cache.service.downloadFileContent(itemId)
             if (contentResult.isFailure) {
                 Log.w(TAG, "Failed to download $name during migration", contentResult.exceptionOrNull())
                 continue

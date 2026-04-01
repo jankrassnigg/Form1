@@ -46,8 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Storage
 import com.form1.musicplayer.music.MusicSourceConfig
-import com.form1.musicplayer.onedrive.OneDriveAuthManager
-import com.form1.musicplayer.onedrive.OneDriveService
+import com.form1.musicplayer.onedrive.OneDriveCacheManager
 import com.form1.musicplayer.profile.ProfileConfig
 import com.form1.musicplayer.profile.ProfileManager
 import com.form1.musicplayer.profile.StorageType
@@ -81,11 +80,11 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
-    val authManager = remember { OneDriveAuthManager(context) }
-    val oneDriveService = remember { OneDriveService(authManager) }
+    val cacheManager = remember { OneDriveCacheManager.getInstance(context) }
+    val authManager = remember { cacheManager.auth }
     val musicSourceConfig = remember { MusicSourceConfig(context) }
     val profileConfig = remember { ProfileConfig(context) }
-    val profileManager = remember { ProfileManager(context, profileConfig, oneDriveService) }
+    val profileManager = remember { ProfileManager(context, profileConfig, cacheManager) }
 
     var isInitialized by remember { mutableStateOf(false) }
     var isSignedIn by remember { mutableStateOf(false) }

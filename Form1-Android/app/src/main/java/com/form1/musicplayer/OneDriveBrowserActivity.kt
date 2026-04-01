@@ -65,14 +65,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import com.form1.musicplayer.data.PlaylistRepository
 import com.form1.musicplayer.data.TrackInfo
 import com.form1.musicplayer.music.MusicSourceConfig
-import com.form1.musicplayer.onedrive.OneDriveAuthManager
+import com.form1.musicplayer.onedrive.OneDriveCacheManager
 import com.form1.musicplayer.onedrive.OneDriveFile
 import com.form1.musicplayer.onedrive.OneDriveFolder
 import com.form1.musicplayer.onedrive.OneDriveFolderContents
-import com.form1.musicplayer.onedrive.OneDriveService
 import com.form1.musicplayer.player.AudioPlayerViewModel
 import com.form1.musicplayer.player.Track
 import com.form1.musicplayer.ui.AppNavigationDrawer
@@ -122,12 +123,13 @@ fun OneDriveBrowserScreen(
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
-    val authManager = remember { OneDriveAuthManager(context) }
-    val oneDriveService = remember { OneDriveService(authManager) }
+    val cacheManager = remember { OneDriveCacheManager.getInstance(context) }
     val repository = remember { PlaylistRepository.getInstance(context) }
     val musicSourceConfig = remember { MusicSourceConfig(context) }
 
     var uiState by remember { mutableStateOf<OneDriveUiState>(OneDriveUiState.Loading) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    val pullRefreshState = rememberPullToRefreshState()
 
     // null = not yet initialised from DataStore; initialised in LaunchedEffect(Unit) below
     var folderStack by remember { mutableStateOf<List<Pair<String?, String>>?>(null) }
@@ -159,18 +161,17 @@ fun OneDriveBrowserScreen(
     LaunchedEffect(currentFolder) {
         if (folderStack == null) return@LaunchedEffect
         scope.launch {
-            val initialized = authManager.initialize()
+            val initialized = cacheManager.auth.initialize()
             if (!initialized) {
                 uiState = OneDriveUiState.Error("Failed to initialize OneDrive")
                 return@launch
             }
-            val isSignedIn = authManager.isSignedIn()
-            if (!isSignedIn) {
+            if (!cacheManager.auth.isSignedIn()) {
                 uiState = OneDriveUiState.Error("Not signed in to OneDrive")
                 return@launch
             }
             selectedFiles = emptySet()
-            loadFolderContents(oneDriveService, currentFolder?.first) { state -> uiState = state }
+            loadFolderContents(cacheManager, currentFolder?.first) { state -> uiState = state }
         }
     }
 
@@ -223,7 +224,8 @@ fun OneDriveBrowserScreen(
                         } else {
                             IconButton(onClick = {
                                 scope.launch {
-                                    loadFolderContents(oneDriveService, currentFolder?.first) { state -> uiState = state }
+                                    cacheManager.invalidateFolder(currentFolder?.first)
+                                    loadFolderContents(cacheManager, currentFolder?.first) { state -> uiState = state }
                                 }
                             }) {
                                 Icon(Icons.Default.Refresh, contentDescription = "Refresh")
@@ -272,7 +274,17 @@ fun OneDriveBrowserScreen(
                 }
             }
         ) { innerPadding ->
-            Box(
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                state = pullRefreshState,
+                onRefresh = {
+                    scope.launch {
+                        isRefreshing = true
+                        cacheManager.invalidateFolder(currentFolder?.first)
+                        loadFolderContents(cacheManager, currentFolder?.first) { state -> uiState = state }
+                        isRefreshing = false
+                    }
+                },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
@@ -345,7 +357,7 @@ fun OneDriveBrowserScreen(
                                                 scope.launch {
                                                     playAllOneDriveFiles(
                                                         state.contents.audioFiles,
-                                                        oneDriveService,
+                                                        cacheManager,
                                                         audioPlayerViewModel
                                                     )
                                                 }
@@ -398,7 +410,7 @@ fun OneDriveBrowserScreen(
                                                 val fileIndex = state.contents.audioFiles.indexOf(file)
                                                 playAllOneDriveFiles(
                                                     state.contents.audioFiles,
-                                                    oneDriveService,
+                                                    cacheManager,
                                                     audioPlayerViewModel,
                                                     startIndex = fileIndex
                                                 )
@@ -457,7 +469,7 @@ fun OneDriveBrowserScreen(
                             if (name.isEmpty()) { newFolderError = "Please enter a folder name"; return@Button }
                             scope.launch {
                                 isCreatingFolder = true
-                                val result = oneDriveService.createFolder(currentFolder?.first, name)
+                                val result = cacheManager.service.createFolder(currentFolder?.first, name)
                                 isCreatingFolder = false
                                 result.fold(
                                     onSuccess = { folder ->
@@ -603,12 +615,12 @@ fun OneDriveFileItem(
 }
 
 internal suspend fun loadFolderContents(
-    service: OneDriveService,
+    cache: OneDriveCacheManager,
     folderId: String?,
     updateState: (OneDriveUiState) -> Unit
 ) {
     updateState(OneDriveUiState.Loading)
-    val result = service.listFolderContents(folderId)
+    val result = cache.listFolderContents(folderId)
     result.fold(
         onSuccess = { contents ->
             updateState(
@@ -627,13 +639,13 @@ internal suspend fun loadFolderContents(
 
 internal suspend fun playAllOneDriveFiles(
     files: List<OneDriveFile>,
-    service: OneDriveService,
+    cache: OneDriveCacheManager,
     playerViewModel: AudioPlayerViewModel,
     startIndex: Int = 0
 ) {
     if (files.isEmpty()) return
     val tracks = files.mapNotNull { file ->
-        val downloadUrl = file.downloadUrl ?: service.getDownloadUrl(file.id).getOrNull()
+        val downloadUrl = file.downloadUrl ?: cache.getDownloadUrl(file.id).getOrNull()
         if (downloadUrl != null) {
             Track(uri = android.net.Uri.parse(downloadUrl), title = file.name, id = file.id)
         } else null

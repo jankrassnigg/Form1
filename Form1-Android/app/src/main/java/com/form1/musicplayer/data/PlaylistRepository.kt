@@ -50,6 +50,10 @@ class PlaylistRepository private constructor(context: Context) {
     suspend fun removeTrackFromPlaylist(playlistId: Long, position: Int) =
         fileManager.removeTrackAtPosition(playlistId, position)
 
+    /** Set or clear the "make available offline" flag for a playlist. */
+    suspend fun setOfflineAvailable(playlistId: Long, enabled: Boolean) =
+        fileManager.setOfflineAvailable(playlistId, enabled)
+
     /** Resolve a temporary OneDrive download URL for [itemId]. */
     suspend fun getDownloadUrl(itemId: String): Result<String> =
         fileManager.getDownloadUrl(itemId)

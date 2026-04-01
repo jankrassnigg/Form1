@@ -445,11 +445,10 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
     }
 
     /**
-     * Get a temporary download URL for a OneDrive file.
-     * Uses the `@microsoft.graph.downloadUrl` property from item metadata — avoids
-     * redirect-following issues with HEAD requests and works with OkHttp defaults.
+     * Fetch item metadata (download URL + eTag) for a OneDrive file.
+     * Used by the cache manager for URL caching and eTag-based file content validation.
      */
-    suspend fun getDownloadUrl(fileId: String): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun getItemMetadata(fileId: String): Result<ItemMetadata> = withContext(Dispatchers.IO) {
         try {
             val accessToken = authManager.getAccessToken()
                 ?: return@withContext Result.failure(Exception("Not authenticated"))
@@ -471,14 +470,62 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
                 val item = gson.fromJson(body, DriveItem::class.java)
                 val downloadUrl = item.downloadUrl
                     ?: return@withContext Result.failure(IOException("No @microsoft.graph.downloadUrl in response"))
-                Result.success(downloadUrl)
+                Result.success(ItemMetadata(downloadUrl, item.eTag))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting download URL for $fileId", e)
+            Log.e(TAG, "Error getting item metadata for $fileId", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get a temporary download URL for a OneDrive file.
+     * Uses the `@microsoft.graph.downloadUrl` property from item metadata — avoids
+     * redirect-following issues with HEAD requests and works with OkHttp defaults.
+     */
+    suspend fun getDownloadUrl(fileId: String): Result<String> =
+        getItemMetadata(fileId).map { it.downloadUrl }
+
+    /**
+     * Download the binary content of a OneDrive file by [itemId].
+     * Used by the cache layer to store files on disk for offline playback.
+     */
+    suspend fun downloadFileBytes(itemId: String): Result<ByteArray> = withContext(Dispatchers.IO) {
+        try {
+            val accessToken = authManager.getAccessToken()
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
+
+            val url = "$GRAPH_API_BASE/me/drive/items/$itemId/content"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $accessToken")
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(
+                        IOException("Download failed: ${response.code} ${response.message}")
+                    )
+                }
+                val bytes = response.body?.bytes()
+                    ?: return@withContext Result.failure(IOException("Empty response body"))
+                Result.success(bytes)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error downloading bytes for $itemId", e)
             Result.failure(e)
         }
     }
 }
+
+/**
+ * Metadata returned by [OneDriveService.getItemMetadata].
+ * Contains both the temporary download URL and the eTag for cache validation.
+ */
+data class ItemMetadata(
+    val downloadUrl: String,
+    val eTag: String?
+)
 
 /**
  * Represents a file in OneDrive
@@ -491,7 +538,9 @@ data class OneDriveFile(
     val downloadUrl: String? = null,
     val webUrl: String,
     /** Parent folder path from Graph API, e.g. "/drive/root:/Music/The Beatles/Abbey Road" */
-    val parentPath: String? = null
+    val parentPath: String? = null,
+    /** ETag for cache validation; changes when file content changes. */
+    val eTag: String? = null
 )
 
 /**
@@ -523,6 +572,7 @@ private data class DriveItem(
     @SerializedName("@microsoft.graph.downloadUrl")
     val downloadUrl: String?,
     val webUrl: String,
+    val eTag: String?,
     val file: FileProperties?,   // Present if it's a file (not folder)
     val folder: FolderProperties?, // Present if it's a folder (not file)
     val parentReference: ParentReference?
@@ -547,7 +597,8 @@ private fun DriveItem.toOneDriveFile() = OneDriveFile(
     mimeType = file?.mimeType,
     downloadUrl = downloadUrl,
     webUrl = webUrl,
-    parentPath = parentReference?.path
+    parentPath = parentReference?.path,
+    eTag = eTag
 )
 
 private fun DriveItem.toOneDriveFolder() = OneDriveFolder(

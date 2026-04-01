@@ -16,7 +16,9 @@ data class Playlist(
     val name: String,
     val tracks: List<PlaylistTrack>,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    /** Whether the user has requested all tracks to be kept available offline. */
+    val offlineAvailable: Boolean = false
 )
 
 /** Domain model for a single track inside a playlist. */

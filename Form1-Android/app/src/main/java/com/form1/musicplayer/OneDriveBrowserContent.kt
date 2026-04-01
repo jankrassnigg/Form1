@@ -47,12 +47,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import com.form1.musicplayer.data.PlaylistRepository
 import com.form1.musicplayer.data.TrackInfo
 import com.form1.musicplayer.music.MusicSourceConfig
-import com.form1.musicplayer.onedrive.OneDriveAuthManager
+import com.form1.musicplayer.onedrive.OneDriveCacheManager
 import com.form1.musicplayer.onedrive.OneDriveFile
-import com.form1.musicplayer.onedrive.OneDriveService
 import com.form1.musicplayer.player.AudioPlayerViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -60,6 +61,7 @@ import kotlinx.coroutines.launch
 /**
  * Embeddable OneDrive folder browser with search — used in the Music Library tab.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun OneDriveBrowserContent(
     modifier: Modifier = Modifier,
@@ -68,13 +70,14 @@ fun OneDriveBrowserContent(
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val authManager = remember { OneDriveAuthManager(context) }
-    val oneDriveService = remember { OneDriveService(authManager) }
+    val cacheManager = remember { OneDriveCacheManager.getInstance(context) }
     val repository = remember { PlaylistRepository.getInstance(context) }
     val musicSourceConfig = remember { MusicSourceConfig(context) }
 
     // Folder browser state
     var uiState by remember { mutableStateOf<OneDriveUiState>(OneDriveUiState.Loading) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    val pullRefreshState = rememberPullToRefreshState()
     var folderStack by remember { mutableStateOf<List<Pair<String?, String>>?>(null) }
     var rootFolderId by remember { mutableStateOf<String?>(null) }
 
@@ -108,17 +111,17 @@ fun OneDriveBrowserContent(
     LaunchedEffect(currentFolder) {
         if (folderStack == null || searchResults != null) return@LaunchedEffect
         scope.launch {
-            val initialized = authManager.initialize()
+            val initialized = cacheManager.auth.initialize()
             if (!initialized) {
                 uiState = OneDriveUiState.Error("Failed to initialize OneDrive")
                 return@launch
             }
-            if (!authManager.isSignedIn()) {
+            if (!cacheManager.auth.isSignedIn()) {
                 uiState = OneDriveUiState.Error("Not signed in to OneDrive.\nGo to Settings to connect.")
                 return@launch
             }
             selectedFiles = emptySet()
-            loadFolderContents(oneDriveService, currentFolder?.first) { state ->
+            loadFolderContents(cacheManager, currentFolder?.first) { state ->
                 uiState = state
                 if (state is OneDriveUiState.Success) visibleFiles = state.contents.audioFiles
             }
@@ -160,7 +163,7 @@ fun OneDriveBrowserContent(
                         isSearchLoading = true
                         searchError = null
                         selectedFiles = emptySet()
-                        val result = oneDriveService.searchAudioFiles(searchQuery.trim(), rootFolderId)
+                        val result = cacheManager.searchAudioFiles(searchQuery.trim(), rootFolderId)
                         result.fold(
                             onSuccess = { files ->
                                 searchResults = files
@@ -205,12 +208,12 @@ fun OneDriveBrowserContent(
                 onPlayFile = { file ->
                     scope.launch {
                         val idx = searchResults!!.indexOf(file)
-                        playAllOneDriveFiles(searchResults!!, oneDriveService, audioPlayerViewModel, startIndex = idx)
+                        playAllOneDriveFiles(searchResults!!, cacheManager, audioPlayerViewModel, startIndex = idx)
                     }
                 },
                 onPlayAll = {
                     scope.launch {
-                        playAllOneDriveFiles(searchResults!!, oneDriveService, audioPlayerViewModel)
+                        playAllOneDriveFiles(searchResults!!, cacheManager, audioPlayerViewModel)
                     }
                 },
                 onSelectAll = {
@@ -222,7 +225,23 @@ fun OneDriveBrowserContent(
             )
         } else {
             // Browse mode
-            Box(modifier = Modifier.weight(1f)) {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                state = pullRefreshState,
+                onRefresh = {
+                    scope.launch {
+                        isRefreshing = true
+                        cacheManager.invalidateFolder(currentFolder?.first)
+                        loadFolderContents(cacheManager, currentFolder?.first) { state ->
+                            uiState = state
+                            if (state is OneDriveUiState.Success) visibleFiles = state.contents.audioFiles
+                        }
+                        isRefreshing = false
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            ) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Folder navigation header
                     if ((folderStack?.size ?: 0) > 1) {
@@ -298,7 +317,7 @@ fun OneDriveBrowserContent(
                                             ) {
                                                 Button(onClick = {
                                                     scope.launch {
-                                                        playAllOneDriveFiles(state.contents.audioFiles, oneDriveService, audioPlayerViewModel)
+                                                        playAllOneDriveFiles(state.contents.audioFiles, cacheManager, audioPlayerViewModel)
                                                     }
                                                 }) {
                                                     Icon(Icons.Default.PlayArrow, null, modifier = Modifier.padding(end = 8.dp))
@@ -340,7 +359,7 @@ fun OneDriveBrowserContent(
                                         onClick = {
                                             scope.launch {
                                                 val idx = state.contents.audioFiles.indexOf(file)
-                                                playAllOneDriveFiles(state.contents.audioFiles, oneDriveService, audioPlayerViewModel, startIndex = idx)
+                                                playAllOneDriveFiles(state.contents.audioFiles, cacheManager, audioPlayerViewModel, startIndex = idx)
                                             }
                                         }
                                     )
@@ -378,6 +397,7 @@ fun OneDriveBrowserContent(
                     }
                 }
             }
+            } // end PullToRefreshBox
         }
     }
 

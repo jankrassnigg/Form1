@@ -26,13 +26,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.form1.musicplayer.data.Playlist
 import com.form1.musicplayer.data.PlaylistRepository
 import com.form1.musicplayer.data.PlaylistTrack
+import com.form1.musicplayer.onedrive.OneDriveCacheManager
+import com.form1.musicplayer.onedrive.OneDriveDownloadQueue
 import com.form1.musicplayer.player.AudioPlayerViewModel
 import com.form1.musicplayer.player.Track
 import com.form1.musicplayer.ui.PlayerBar
 import com.form1.musicplayer.ui.theme.Form1MusicPlayerTheme
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class PlaylistDetailsActivity : ComponentActivity() {
@@ -65,14 +69,37 @@ fun PlaylistDetailsScreen(
 ) {
     val context = LocalContext.current
     val repository = remember { PlaylistRepository.getInstance(context) }
+    val cacheManager = remember { OneDriveCacheManager.getInstance(context) }
+    val downloadQueue = remember { OneDriveDownloadQueue.getInstance(context) }
     val scope = rememberCoroutineScope()
 
     var playlist by remember { mutableStateOf<Playlist?>(null) }
     var selectedTracks by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    // Offline availability state
+    var offlineAvailable by remember { mutableStateOf(false) }
+    // Track which OneDrive items are locally cached (refreshed when downloads complete)
+    var cachedItemIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var offlineDownloadJob by remember { mutableStateOf<Job?>(null) }
+
     LaunchedEffect(playlistId) {
         playlist = repository.getPlaylistWithTracks(playlistId)
+        offlineAvailable = playlist?.offlineAvailable ?: false
+        // Compute which OneDrive items are already cached
+        cachedItemIds = playlist?.tracks
+            ?.filter { it.source == "onedrive" && cacheManager.isCached(it.sourceId) }
+            ?.map { it.sourceId }
+            ?.toSet() ?: emptySet()
+    }
+
+    // Refresh cached indicators whenever a download completes
+    LaunchedEffect(Unit) {
+        downloadQueue.events.collect { event ->
+            if (event.success) {
+                cachedItemIds = cachedItemIds + event.itemId
+            }
+        }
     }
 
     Scaffold(
@@ -205,10 +232,62 @@ fun PlaylistDetailsScreen(
                         }
                     }
 
+                    item {
+                        // Offline availability toggle
+                        val oneDriveTracks = pl.tracks.filter { it.source == "onedrive" }
+                        if (oneDriveTracks.isNotEmpty()) {
+                            val cachedCount = oneDriveTracks.count { cachedItemIds.contains(it.sourceId) }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "Available Offline",
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                    Text(
+                                        "$cachedCount / ${oneDriveTracks.size} tracks cached",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                                Switch(
+                                    checked = offlineAvailable,
+                                    onCheckedChange = { enabled ->
+                                        offlineAvailable = enabled
+                                        scope.launch {
+                                            repository.setOfflineAvailable(playlistId, enabled)
+                                        }
+                                        if (enabled) {
+                                            offlineDownloadJob?.cancel()
+                                            offlineDownloadJob = scope.launch {
+                                                for (track in oneDriveTracks) {
+                                                    if (!offlineAvailable) break
+                                                    if (cacheManager.isCached(track.sourceId)) continue
+                                                    downloadQueue.enqueue(track.sourceId, track.title)
+                                                    // Wait for this specific item to finish before enqueuing the next
+                                                    downloadQueue.events.first { it.itemId == track.sourceId }
+                                                }
+                                            }
+                                        } else {
+                                            offlineDownloadJob?.cancel()
+                                            offlineDownloadJob = null
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     items(pl.tracks) { track ->
                         PlaylistTrackItem(
                             track = track,
                             isSelected = selectedTracks.contains(track.id),
+                            isCached = track.source == "onedrive" && cachedItemIds.contains(track.sourceId),
                             onCheckedChange = { checked ->
                                 selectedTracks = if (checked) {
                                     selectedTracks + track.id
@@ -311,6 +390,7 @@ private suspend fun resolvePlaybackTracks(
 fun PlaylistTrackItem(
     track: PlaylistTrack,
     isSelected: Boolean,
+    isCached: Boolean = false,
     onCheckedChange: (Boolean) -> Unit,
     onClick: () -> Unit,
     onDelete: () -> Unit,
@@ -352,15 +432,27 @@ fun PlaylistTrackItem(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Text(
-                    text = when (track.source) {
-                        "local" -> "Local Storage"
-                        "onedrive" -> "OneDrive"
-                        else -> track.source
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = when (track.source) {
+                            "local" -> "Local Storage"
+                            "onedrive" -> "OneDrive"
+                            else -> track.source
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    if (isCached) {
+                        Icon(
+                            imageVector = Icons.Default.OfflinePin,
+                            contentDescription = "Cached offline",
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .size(12.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
 
             IconButton(onClick = { showDeleteDialog = true }) {
