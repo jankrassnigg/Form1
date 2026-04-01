@@ -15,8 +15,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import android.content.Intent
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,6 +41,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,6 +75,8 @@ class MainActivity : ComponentActivity() {
 fun MainScreenWithDrawer() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val activity = androidx.compose.ui.platform.LocalContext.current as? ComponentActivity
+    val canGoBack = activity?.isTaskRoot == false
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -88,8 +94,21 @@ fun MainScreenWithDrawer() {
                 TopAppBar(
                     title = { Text("Now Playing") },
                     navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        if (canGoBack) {
+                            IconButton(onClick = { activity?.finish() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        } else {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, contentDescription = "Menu")
+                            }
+                        }
+                    },
+                    actions = {
+                        if (canGoBack) {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, contentDescription = "Menu")
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -113,6 +132,7 @@ fun NowPlayingScreen(
     val state by viewModel.playbackState.collectAsState()
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableStateOf(0L) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(
@@ -169,6 +189,35 @@ fun NowPlayingScreen(
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                             textAlign = TextAlign.Center
                         )
+                    }
+
+                    if (state.currentPlaylistName.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .clickable {
+                                    state.currentPlaylistId?.let { id ->
+                                        val intent = Intent(context, PlaylistDetailsActivity::class.java)
+                                            .putExtra("playlist_id", id)
+                                        context.startActivity(intent)
+                                    }
+                                }
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = state.currentPlaylistName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
 
                     if (state.duration > 0) {

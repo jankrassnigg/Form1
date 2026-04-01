@@ -64,15 +64,30 @@ class AudioPlayerManager private constructor(private val context: Context) {
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val index = player?.currentMediaItemIndex ?: 0
-            val meta = mediaItem?.mediaMetadata
+            // Use queue data for the immediate display; onMediaMetadataChanged will override
+            // these with embedded ID3 tags once ExoPlayer reads them from the file.
+            val queueTrack = _playbackState.value.queue.getOrNull(index)
             _playbackState.value = _playbackState.value.copy(
-                currentTrack = meta?.title?.toString()?.takeIf { it.isNotBlank() }
-                    ?: _playbackState.value.currentTrack,
-                currentArtist = meta?.artist?.toString() ?: "",
-                currentAlbum = meta?.albumTitle?.toString() ?: "",
+                currentTrack = queueTrack?.title ?: "",
+                currentArtist = queueTrack?.artist ?: "",
+                currentAlbum = queueTrack?.album ?: "",
                 currentTrackIndex = index,
                 hasTrack = mediaItem != null,
                 hasEnded = false
+            )
+        }
+
+        // Fires when ExoPlayer reads embedded metadata (ID3 tags) from the audio file.
+        // This is what the notification already uses; we mirror it into PlaybackState so
+        // the UI stays in sync.
+        override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+            val title = mediaMetadata.title?.toString()?.takeIf { it.isNotBlank() }
+            val artist = mediaMetadata.artist?.toString()?.takeIf { it.isNotBlank() }
+            val album = mediaMetadata.albumTitle?.toString()?.takeIf { it.isNotBlank() }
+            _playbackState.value = _playbackState.value.copy(
+                currentTrack = title ?: _playbackState.value.currentTrack,
+                currentArtist = artist ?: _playbackState.value.currentArtist,
+                currentAlbum = album ?: _playbackState.value.currentAlbum
             )
         }
     }
@@ -107,7 +122,9 @@ class AudioPlayerManager private constructor(private val context: Context) {
                 hasTrack = true,
                 queue = emptyList(),
                 currentTrackIndex = 0,
-                hasEnded = false
+                hasEnded = false,
+                currentPlaylistId = null,
+                currentPlaylistName = ""
             )
         }
     }
@@ -152,15 +169,24 @@ class AudioPlayerManager private constructor(private val context: Context) {
      * Load a queue of tracks and start playing from [startIndex].
      * ExoPlayer manages auto-advance and the notification prev/next buttons automatically.
      */
-    fun playQueue(tracks: List<Track>, startIndex: Int = 0) {
+    fun playQueue(
+        tracks: List<Track>,
+        startIndex: Int = 0,
+        playlistId: Long? = null,
+        playlistName: String = ""
+    ) {
         if (tracks.isEmpty()) return
         val validIndex = startIndex.coerceIn(0, tracks.size - 1)
 
         val mediaItems = tracks.map { track ->
+            // Do NOT set title/artist/album here — if we pre-populate them, ExoPlayer's merge
+            // policy gives our values priority over the embedded ID3 tags, so the notification
+            // and onMediaMetadataChanged would never show the real song title.
+            // Initial display comes from the queue lookup in onMediaItemTransition;
+            // onMediaMetadataChanged then overrides with extracted tags once available.
             MediaItem.Builder()
                 .setUri(track.uri)
                 .setMediaId(track.id)
-                .setMediaMetadata(MediaMetadata.Builder().setTitle(track.title).build())
                 .build()
         }
 
@@ -174,8 +200,12 @@ class AudioPlayerManager private constructor(private val context: Context) {
             queue = tracks,
             currentTrackIndex = validIndex,
             currentTrack = tracks[validIndex].title,
+            currentArtist = tracks[validIndex].artist,
+            currentAlbum = tracks[validIndex].album,
             hasTrack = true,
-            hasEnded = false
+            hasEnded = false,
+            currentPlaylistId = playlistId,
+            currentPlaylistName = playlistName
         )
     }
 
@@ -223,7 +253,9 @@ class AudioPlayerManager private constructor(private val context: Context) {
 data class Track(
     val uri: Uri,
     val title: String,
-    val id: String = uri.toString()
+    val id: String = uri.toString(),
+    val artist: String = "",
+    val album: String = ""
 )
 
 /** Represents the current state of audio playback. */
@@ -240,5 +272,9 @@ data class PlaybackState(
     val currentPosition: Long = 0L,
     val duration: Long = 0L,
     val queue: List<Track> = emptyList(),
-    val currentTrackIndex: Int = -1
+    val currentTrackIndex: Int = -1,
+    /** ID of the playlist the queue originated from, or null if not from a playlist. */
+    val currentPlaylistId: Long? = null,
+    /** Display name of the source playlist, or empty string if not from a playlist. */
+    val currentPlaylistName: String = ""
 )

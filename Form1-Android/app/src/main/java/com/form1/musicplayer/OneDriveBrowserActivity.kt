@@ -498,7 +498,7 @@ fun OneDriveBrowserScreen(
                 selectedCount = selectedFiles.size,
                 selectedFileNames = currentFiles.filter { selectedFiles.contains(it.id) }.map { it.name },
                 repository = repository,
-                onAddToPlaylist = { playlistId ->
+                onAddToPlaylist = { playlistId, playlistName ->
                     scope.launch {
                         val tracks = currentFiles
                             .filter { selectedFiles.contains(it.id) }
@@ -511,6 +511,12 @@ fun OneDriveBrowserScreen(
                                 )
                             }
                         repository.addTracksToPlaylist(playlistId, tracks)
+                        val n = tracks.size
+                        android.widget.Toast.makeText(
+                            context,
+                            "Added $n song${if (n != 1) "s" else ""} to \"$playlistName\"",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
                         selectedFiles = emptySet()
                         showPlaylistDialog = false
                     }

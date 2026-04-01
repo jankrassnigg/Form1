@@ -42,8 +42,13 @@ class AudioPlayerViewModel(application: Application) : AndroidViewModel(applicat
     /**
      * Play a queue of tracks
      */
-    fun playQueue(tracks: List<Track>, startIndex: Int = 0) {
-        audioPlayerManager.playQueue(tracks, startIndex)
+    fun playQueue(
+        tracks: List<Track>,
+        startIndex: Int = 0,
+        playlistId: Long? = null,
+        playlistName: String = ""
+    ) {
+        audioPlayerManager.playQueue(tracks, startIndex, playlistId, playlistName)
     }
 
     /**

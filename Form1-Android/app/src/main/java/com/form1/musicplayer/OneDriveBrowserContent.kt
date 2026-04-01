@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import android.widget.Toast
 import com.form1.musicplayer.data.PlaylistRepository
 import com.form1.musicplayer.data.TrackInfo
 import com.form1.musicplayer.music.MusicSourceConfig
@@ -407,7 +408,7 @@ fun OneDriveBrowserContent(
             selectedCount = selectedFiles.size,
             selectedFileNames = visibleFiles.filter { selectedFiles.contains(it.id) }.map { it.name },
             repository = repository,
-            onAddToPlaylist = { playlistId ->
+            onAddToPlaylist = { playlistId, playlistName ->
                 scope.launch {
                     val tracks = visibleFiles
                         .filter { selectedFiles.contains(it.id) }
@@ -420,6 +421,12 @@ fun OneDriveBrowserContent(
                             )
                         }
                     repository.addTracksToPlaylist(playlistId, tracks)
+                    val n = tracks.size
+                    Toast.makeText(
+                        context,
+                        "Added $n song${if (n != 1) "s" else ""} to \"$playlistName\"",
+                        Toast.LENGTH_SHORT
+                    ).show()
                     selectedFiles = emptySet()
                     showPlaylistDialog = false
                 }
@@ -537,7 +544,7 @@ fun AddToPlaylistDialog(
     selectedCount: Int,
     selectedFileNames: List<String>,
     repository: PlaylistRepository,
-    onAddToPlaylist: (Long) -> Unit,
+    onAddToPlaylist: (playlistId: Long, playlistName: String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -577,7 +584,7 @@ fun AddToPlaylistDialog(
                                 if (name.isNotEmpty()) {
                                     scope.launch {
                                         val id = repository.createPlaylist(name)
-                                        onAddToPlaylist(id)
+                                        onAddToPlaylist(id, name)
                                     }
                                 }
                             },
@@ -619,7 +626,7 @@ fun AddToPlaylistDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp)
-                                    .clickable { onAddToPlaylist(playlist.id) }
+                                    .clickable { onAddToPlaylist(playlist.id, playlist.name) }
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(16.dp),

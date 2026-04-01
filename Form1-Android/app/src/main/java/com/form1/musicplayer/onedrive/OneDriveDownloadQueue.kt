@@ -8,8 +8,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -60,6 +63,10 @@ class OneDriveDownloadQueue private constructor(context: Context) {
     /** Emits a [DownloadEvent] each time a download completes (success or failure). */
     val events: SharedFlow<DownloadEvent> = _events.asSharedFlow()
 
+    private val _downloadingItemIds = MutableStateFlow<Set<String>>(emptySet())
+    /** Set of itemIds currently queued or actively downloading. */
+    val downloadingItemIds: StateFlow<Set<String>> = _downloadingItemIds.asStateFlow()
+
     companion object {
         private const val TAG = "OneDriveDownloadQueue"
 
@@ -86,6 +93,7 @@ class OneDriveDownloadQueue private constructor(context: Context) {
             Log.d(TAG, "Skipping already-cached: $displayName")
             return
         }
+        _downloadingItemIds.value = _downloadingItemIds.value + itemId
         scope.launch { backgroundChannel.send(DownloadTask(itemId, displayName)) }
     }
 
@@ -101,6 +109,7 @@ class OneDriveDownloadQueue private constructor(context: Context) {
             _events.tryEmit(DownloadEvent(itemId, displayName, success = true))
             return
         }
+        _downloadingItemIds.value = _downloadingItemIds.value + itemId
         immediateItemId = itemId
         immediateDisplayName = displayName
         immediateJob?.cancel()
@@ -115,6 +124,7 @@ class OneDriveDownloadQueue private constructor(context: Context) {
         val success = result.isSuccess
         if (!success) Log.w(TAG, "Immediate download failed: $displayName", result.exceptionOrNull())
         immediateItemId = null
+        _downloadingItemIds.value = _downloadingItemIds.value - itemId
         _events.emit(DownloadEvent(itemId, displayName, success))
     }
 
@@ -127,12 +137,14 @@ class OneDriveDownloadQueue private constructor(context: Context) {
                 }
                 if (cache.isCached(task.itemId)) {
                     Log.d(TAG, "Background skip (already cached): ${task.displayName}")
+                    _downloadingItemIds.value = _downloadingItemIds.value - task.itemId
                     continue
                 }
                 Log.d(TAG, "Background download: ${task.displayName}")
                 val result = cache.getFileContent(task.itemId, isImmutable = true)
                 val success = result.isSuccess
                 if (!success) Log.w(TAG, "Background download failed: ${task.displayName}", result.exceptionOrNull())
+                _downloadingItemIds.value = _downloadingItemIds.value - task.itemId
                 _events.emit(DownloadEvent(task.itemId, task.displayName, success))
             }
         }

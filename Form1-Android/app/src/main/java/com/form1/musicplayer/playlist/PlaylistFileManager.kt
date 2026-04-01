@@ -1,12 +1,18 @@
 package com.form1.musicplayer.playlist
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.form1.musicplayer.data.Playlist
 import com.form1.musicplayer.data.PlaylistEntity
 import com.form1.musicplayer.data.PlaylistTrack
 import com.form1.musicplayer.data.TrackInfo
 import com.form1.musicplayer.onedrive.OneDriveCacheManager
+import com.form1.musicplayer.onedrive.OneDriveDownloadQueue
 import com.form1.musicplayer.profile.ProfileConfig
 import com.form1.musicplayer.profile.ProfileManager
 import com.google.gson.Gson
@@ -62,6 +68,7 @@ class PlaylistFileManager private constructor(context: Context) {
     private val profileConfig = ProfileConfig(context)
     private val cacheManager = OneDriveCacheManager.getInstance(context)
     private val profileManager = ProfileManager(context, profileConfig, cacheManager)
+    private val downloadQueue = OneDriveDownloadQueue.getInstance(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val gson: Gson = GsonBuilder()
         .setPrettyPrinting()
@@ -121,6 +128,26 @@ class PlaylistFileManager private constructor(context: Context) {
 
     init {
         scope.launch { loadAll() }
+        // Flush any pending debounce saves when the app goes to background so that
+        // modifications are never lost on process kill (e.g. redeploy, force-close).
+        Handler(Looper.getMainLooper()).post {
+            ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+                override fun onStop(owner: LifecycleOwner) {
+                    flushPendingSaves()
+                }
+            })
+        }
+    }
+
+    /** Immediately save all playlists that have a pending debounced write. */
+    fun flushPendingSaves() {
+        val pending = debounceJobs.keys.toList()
+        for (guid in pending) {
+            debounceJobs[guid]?.cancel()
+            debounceJobs.remove(guid)
+            val state = playlists[guid] ?: continue
+            scope.launch { save(state) }
+        }
     }
 
     private suspend fun loadAll() {
@@ -154,6 +181,20 @@ class PlaylistFileManager private constructor(context: Context) {
         }
         emitFlow()
         _isLoading.value = false
+        enqueueOfflineDownloads()
+    }
+
+    /** After load, kick off background downloads for any offline playlist tracks not yet cached. */
+    private fun enqueueOfflineDownloads() {
+        for (state in playlists.values) {
+            if (!offlineFromMods(state.file.modifications)) continue
+            val tracks = reconstructTracks(state.file, toId(state.guid))
+            for (track in tracks) {
+                if (track.source == "onedrive" && !cacheManager.isCached(track.sourceId)) {
+                    downloadQueue.enqueue(track.sourceId, track.title)
+                }
+            }
+        }
     }
 
     // ── Public query API ──────────────────────────────────────────────────────
@@ -241,6 +282,15 @@ class PlaylistFileManager private constructor(context: Context) {
         )
         emitFlow()
         scheduleSave(state)   // debounced — rapid adds (e.g. check-all) coalesce into one write
+
+        // If the playlist is marked offline, enqueue newly added OneDrive tracks for download
+        if (offlineFromMods(state.file.modifications)) {
+            for (track in tracks) {
+                if (track.source == "onedrive" && !cacheManager.isCached(track.sourceId)) {
+                    downloadQueue.enqueue(track.sourceId, track.title)
+                }
+            }
+        }
     }
 
     /**

@@ -1,5 +1,8 @@
 package com.form1.musicplayer.ui
 
+import android.content.Intent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +17,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,9 +29,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.form1.musicplayer.MainActivity
 import com.form1.musicplayer.player.AudioPlayerViewModel
 
 /**
@@ -43,11 +49,20 @@ fun PlayerBar(
     viewModel: AudioPlayerViewModel = viewModel()
 ) {
     val state by viewModel.playbackState.collectAsState()
+    val context = LocalContext.current
 
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider()
         Surface(
-            modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .clickable {
+                    val intent = Intent(context, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    }
+                    context.startActivity(intent)
+                },
             color = MaterialTheme.colorScheme.surfaceVariant
         ) {
             Row(
@@ -99,16 +114,25 @@ fun PlayerBar(
                     )
                 }
 
-                IconButton(
-                    onClick = { viewModel.togglePlayPause() },
-                    enabled = state.hasTrack,
-                    modifier = Modifier.size(40.dp)
+                Box(
+                    modifier = Modifier.size(40.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (state.isPlaying) "Pause" else "Play",
-                        modifier = Modifier.size(24.dp)
-                    )
+                    if (state.isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    } else {
+                        IconButton(
+                            onClick = { viewModel.togglePlayPause() },
+                            enabled = state.hasTrack,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (state.isPlaying) "Pause" else "Play",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
                 }
 
                 IconButton(

@@ -250,7 +250,7 @@ private fun LocalFileBrowserContent(
                             onClick = {
                                 // Play the entire folder as a queue starting from the tapped file
                                 val tracks = state.files.map { f ->
-                                    Track(uri = f.uri, title = f.title, id = f.uri.toString())
+                                    Track(uri = f.uri, title = f.title, id = f.uri.toString(), artist = f.artist, album = f.album)
                                 }
                                 audioPlayerViewModel.playQueue(tracks, state.files.indexOf(audioFile))
                             }

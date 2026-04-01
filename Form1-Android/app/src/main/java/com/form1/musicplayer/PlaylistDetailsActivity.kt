@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +33,7 @@ import com.form1.musicplayer.player.AudioPlayerViewModel
 import com.form1.musicplayer.player.Track
 import com.form1.musicplayer.ui.PlayerBar
 import com.form1.musicplayer.ui.theme.Form1MusicPlayerTheme
+import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -78,6 +80,11 @@ fun PlaylistDetailsScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     // Offline availability state
+    val playbackState by audioPlayerViewModel.playbackState.collectAsState()
+    val currentPlayingId = playbackState.queue.getOrNull(playbackState.currentTrackIndex)?.id
+
+    val downloadingItemIds by downloadQueue.downloadingItemIds.collectAsState()
+
     var offlineAvailable by remember { mutableStateOf(false) }
     // Track which OneDrive items are locally cached (refreshed when downloads complete)
     var cachedItemIds by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -184,7 +191,7 @@ fun PlaylistDetailsScreen(
                             onClick = {
                                 scope.launch {
                                     val tracks = resolvePlaybackTracks(pl.tracks, repository)
-                                    if (tracks.isNotEmpty()) audioPlayerViewModel.playQueue(tracks, 0)
+                                    if (tracks.isNotEmpty()) audioPlayerViewModel.playQueue(tracks, 0, pl.id, pl.name)
                                 }
                             },
                             modifier = Modifier
@@ -288,6 +295,8 @@ fun PlaylistDetailsScreen(
                             track = track,
                             isSelected = selectedTracks.contains(track.id),
                             isCached = track.source == "onedrive" && cachedItemIds.contains(track.sourceId),
+                            isCurrentlyPlaying = track.sourceId == currentPlayingId,
+                            isDownloading = track.source == "onedrive" && downloadingItemIds.contains(track.sourceId),
                             onCheckedChange = { checked ->
                                 selectedTracks = if (checked) {
                                     selectedTracks + track.id
@@ -299,7 +308,7 @@ fun PlaylistDetailsScreen(
                                 scope.launch {
                                     val tracks = resolvePlaybackTracks(pl.tracks, repository)
                                     val startIndex = pl.tracks.indexOf(track)
-                                    if (tracks.isNotEmpty()) audioPlayerViewModel.playQueue(tracks, startIndex.coerceAtMost(tracks.size - 1))
+                                    if (tracks.isNotEmpty()) audioPlayerViewModel.playQueue(tracks, startIndex.coerceAtMost(tracks.size - 1), pl.id, pl.name)
                                 }
                             },
                             onDelete = {
@@ -391,6 +400,8 @@ fun PlaylistTrackItem(
     track: PlaylistTrack,
     isSelected: Boolean,
     isCached: Boolean = false,
+    isCurrentlyPlaying: Boolean = false,
+    isDownloading: Boolean = false,
     onCheckedChange: (Boolean) -> Unit,
     onClick: () -> Unit,
     onDelete: () -> Unit,
@@ -403,7 +414,13 @@ fun PlaylistTrackItem(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isCurrentlyPlaying)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.surface
+        )
     ) {
         Row(
             modifier = Modifier
@@ -418,8 +435,8 @@ fun PlaylistTrackItem(
             )
 
             Icon(
-                imageVector = Icons.Default.MusicNote,
-                contentDescription = null,
+                imageVector = if (isCurrentlyPlaying) Icons.Default.PlayArrow else Icons.Default.MusicNote,
+                contentDescription = if (isCurrentlyPlaying) "Now playing" else null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(end = 16.dp)
             )
@@ -442,7 +459,14 @@ fun PlaylistTrackItem(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
-                    if (isCached) {
+                    if (isDownloading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .size(12.dp),
+                            strokeWidth = 1.5.dp
+                        )
+                    } else if (isCached) {
                         Icon(
                             imageVector = Icons.Default.OfflinePin,
                             contentDescription = "Cached offline",
