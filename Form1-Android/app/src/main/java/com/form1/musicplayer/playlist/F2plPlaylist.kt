@@ -33,9 +33,9 @@ data class F2plRef(
  *
  * [modGuid] — UUID for deduplication during merge
  * [ts]      — ISO-8601 UTC timestamp, used for ordering
- * [op]      — "AddSong" | "RemoveSong" | "RenamePlaylist"
- * [ref]     — index into [F2plFile.references]; required for AddSong / RemoveSong
- * [misc]    — new playlist display name; required for RenamePlaylist
+ * [op]      — "AddSong" | "RemoveSong" | "RenamePlaylist" | "UpdateSongDisplay"
+ * [ref]     — index into [F2plFile.references]; required for AddSong / RemoveSong / UpdateSongDisplay
+ * [misc]    — new playlist display name (RenamePlaylist) or new track display text (UpdateSongDisplay)
  */
 data class F2plMod(
     val modGuid: String,

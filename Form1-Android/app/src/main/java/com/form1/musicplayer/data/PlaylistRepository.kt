@@ -54,6 +54,10 @@ class PlaylistRepository private constructor(context: Context) {
     suspend fun setOfflineAvailable(playlistId: Long, enabled: Boolean) =
         fileManager.setOfflineAvailable(playlistId, enabled)
 
+    /** Update the display text for a track after real metadata becomes available. */
+    suspend fun updateTrackDisplay(playlistId: Long, sourceId: String, newDisplay: String) =
+        fileManager.updateTrackDisplay(playlistId, sourceId, newDisplay)
+
     /** Resolve a temporary OneDrive download URL for [itemId]. */
     suspend fun getDownloadUrl(itemId: String): Result<String> =
         fileManager.getDownloadUrl(itemId)

@@ -84,9 +84,9 @@ class PlaylistFileManager private constructor(context: Context) {
             JsonObject().apply {
                 addProperty("display", src.display)
                 if (src.oneDriveItemId != null) addProperty("oneDriveItemId", src.oneDriveItemId)
-                if (src.relativePaths.isNotEmpty()) {
+                if (src.relativePaths?.isNotEmpty() == true) {
                     add("relativePaths", com.google.gson.JsonArray().also { arr ->
-                        src.relativePaths.forEach { arr.add(it) }
+                        src.relativePaths?.forEach { arr.add(it) }
                     })
                 }
             }
@@ -308,6 +308,49 @@ class PlaylistFileManager private constructor(context: Context) {
         saveNow(state)
     }
 
+    /**
+     * Update the display text for a track identified by [sourceId] within [playlistId].
+     * Adds an [UpdateSongDisplay] modification only if the display has actually changed.
+     * No-ops silently if the playlist or track cannot be found.
+     */
+    suspend fun updateTrackDisplay(playlistId: Long, sourceId: String, newDisplay: String) {
+        Log.d(TAG, "updateTrackDisplay: playlistId=$playlistId sourceId=$sourceId newDisplay=$newDisplay")
+        val state = playlists.values.firstOrNull { toId(it.guid) == playlistId }
+        if (state == null) {
+            Log.w(TAG, "updateTrackDisplay: no playlist found for id=$playlistId (known: ${playlists.keys})")
+            return
+        }
+        Log.d(TAG, "updateTrackDisplay: found playlist '${state.name}' guid=${state.guid} refs=${state.file.references.size}")
+        val refIndex = state.file.references.indexOfFirst { ref ->
+            ref.oneDriveItemId == sourceId || ref.relativePaths?.any { it == sourceId } == true
+        }
+        if (refIndex < 0) {
+            Log.w(TAG, "updateTrackDisplay: no ref found for sourceId=$sourceId in playlist '${state.name}'")
+            Log.w(TAG, "updateTrackDisplay: refs=${state.file.references.map { "itemId=${it.oneDriveItemId} paths=${it.relativePaths}" }}")
+            return
+        }
+        val currentDisplay = state.file.modifications
+            .filter { it.op == "UpdateSongDisplay" && it.ref == refIndex && it.misc != null }
+            .maxByOrNull { it.ts }?.misc ?: state.file.references[refIndex].display
+        Log.d(TAG, "updateTrackDisplay: refIndex=$refIndex currentDisplay=$currentDisplay newDisplay=$newDisplay")
+        if (currentDisplay == newDisplay) {
+            Log.d(TAG, "updateTrackDisplay: display unchanged, skipping")
+            return
+        }
+        val mod = F2plMod(
+            modGuid = UUID.randomUUID().toString(),
+            ts = nowIso(),
+            op = "UpdateSongDisplay",
+            ref = refIndex,
+            misc = newDisplay
+        )
+        Log.d(TAG, "updateTrackDisplay: appending UpdateSongDisplay mod, total mods now=${state.file.modifications.size + 1}")
+        state.file = state.file.copy(modifications = state.file.modifications + mod)
+        emitFlow()
+        Log.d(TAG, "updateTrackDisplay: calling saveNow")
+        saveNow(state)
+    }
+
     suspend fun getDownloadUrl(itemId: String): Result<String> =
         cacheManager.getDownloadUrl(itemId)
 
@@ -343,13 +386,20 @@ class PlaylistFileManager private constructor(context: Context) {
 
     private fun reconstructTracks(file: F2plFile, playlistId: Long): List<PlaylistTrack> {
         val active = buildActiveList(file)
+
+        // Latest UpdateSongDisplay mod per ref index overrides the ref's original display text.
+        val displayOverrides: Map<Int, String> = file.modifications
+            .filter { it.op == "UpdateSongDisplay" && it.ref != null && it.misc != null }
+            .groupBy { it.ref!! }
+            .mapValues { (_, mods) -> mods.maxBy { it.ts }.misc!! }
+
         return active.mapIndexed { pos, refIndex ->
             val ref = file.references.getOrNull(refIndex)
             val source = if (ref?.oneDriveItemId != null) "onedrive" else "local"
             PlaylistTrack(
                 id = pos.toLong(),              // position used as ID for deletion
                 playlistId = playlistId,
-                title = ref?.display ?: "Unknown",
+                title = displayOverrides[refIndex] ?: ref?.display ?: "Unknown",
                 source = source,
                 uri = "",                       // not stored; resolved at playback time
                 sourceId = ref?.oneDriveItemId ?: ref?.relativePaths?.firstOrNull() ?: "",
@@ -429,6 +479,7 @@ class PlaylistFileManager private constructor(context: Context) {
 
     /** Save immediately on the IO scope. Returns as soon as the launch is dispatched. */
     private fun saveNow(state: PlaylistState) {
+        Log.d(TAG, "saveNow: '${state.name}' guid=${state.guid}")
         debounceJobs[state.guid]?.cancel()   // cancel any pending debounce
         debounceJobs.remove(state.guid)
         scope.launch { save(state) }
@@ -438,21 +489,25 @@ class PlaylistFileManager private constructor(context: Context) {
         try {
             val newName = buildFileName(state)
             val json = gson.toJson(state.file)
-            Log.d(TAG, "Saving playlist '${state.name}' → $newName")
+            Log.d(TAG, "save: writing '${state.name}' → $newName (refs=${state.file.references.size} mods=${state.file.modifications.size})")
             val result = profileManager.writeFile(newName, json)
             if (result.isFailure) {
-                Log.e(TAG, "writeFile failed for ${state.guid}", result.exceptionOrNull())
+                Log.e(TAG, "save: writeFile failed for ${state.guid}", result.exceptionOrNull())
                 return
             }
+            Log.d(TAG, "save: write succeeded, checking for old files to delete: ${state.loadedFileNames}")
             val old = state.loadedFileNames.toList()
             for (name in old) {
-                if (name != newName) profileManager.deleteFile(name)
+                if (name != newName) {
+                    Log.d(TAG, "save: deleting old file $name")
+                    profileManager.deleteFile(name)
+                }
             }
             state.loadedFileNames.clear()
             state.loadedFileNames += newName
-            Log.d(TAG, "Saved playlist: $newName")
+            Log.d(TAG, "save: done, loadedFileNames=[${state.loadedFileNames}]")
         } catch (e: Exception) {
-            Log.e(TAG, "Unexpected error saving playlist ${state.guid}", e)
+            Log.e(TAG, "save: Unexpected error saving playlist ${state.guid}", e)
         }
     }
 

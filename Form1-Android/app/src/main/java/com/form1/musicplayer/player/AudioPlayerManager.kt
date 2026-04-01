@@ -13,6 +13,13 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.form1.musicplayer.PlaybackService
+import com.form1.musicplayer.data.PlaylistRepository
+import com.form1.musicplayer.onedrive.OneDriveCacheManager
+import com.form1.musicplayer.onedrive.OneDriveDownloadQueue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +41,17 @@ class AudioPlayerManager private constructor(private val context: Context) {
     private var player: MediaController? = null
     private val handler = Handler(Looper.getMainLooper())
     private var updatePositionRunnable: Runnable? = null
+    private val cacheManager = OneDriveCacheManager.getInstance(context)
+    private val downloadQueue = OneDriveDownloadQueue.getInstance(context)
+    private val repository = PlaylistRepository.getInstance(context)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // Tracks which OneDrive item IDs have already had a background cache download triggered
+    // this session, so we don't re-enqueue on every position tick.
+    private val cacheTriggered = mutableSetOf<String>()
+
+    // Tracks which track IDs have had their playlist display text updated this session.
+    private val displayUpdated = mutableSetOf<String>()
 
     private val _playbackState = MutableStateFlow(PlaybackState())
     val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
@@ -67,6 +85,7 @@ class AudioPlayerManager private constructor(private val context: Context) {
             // Use queue data for the immediate display; onMediaMetadataChanged will override
             // these with embedded ID3 tags once ExoPlayer reads them from the file.
             val queueTrack = _playbackState.value.queue.getOrNull(index)
+            Log.d(TAG, "onMediaItemTransition: index=$index mediaId=${mediaItem?.mediaId} reason=$reason track=${queueTrack?.title}")
             _playbackState.value = _playbackState.value.copy(
                 currentTrack = queueTrack?.title ?: "",
                 currentArtist = queueTrack?.artist ?: "",
@@ -84,11 +103,31 @@ class AudioPlayerManager private constructor(private val context: Context) {
             val title = mediaMetadata.title?.toString()?.takeIf { it.isNotBlank() }
             val artist = mediaMetadata.artist?.toString()?.takeIf { it.isNotBlank() }
             val album = mediaMetadata.albumTitle?.toString()?.takeIf { it.isNotBlank() }
+            Log.d(TAG, "onMediaMetadataChanged: title=$title artist=$artist album=$album")
             _playbackState.value = _playbackState.value.copy(
                 currentTrack = title ?: _playbackState.value.currentTrack,
                 currentArtist = artist ?: _playbackState.value.currentArtist,
                 currentAlbum = album ?: _playbackState.value.currentAlbum
             )
+            // If we got a real title from ID3 tags, update the playlist display text if it differs.
+            if (title != null) {
+                val newDisplay = if (artist != null) "$artist - $title" else title
+                val state = _playbackState.value
+                val idx = player?.currentMediaItemIndex ?: state.currentTrackIndex
+                val track = state.queue.getOrNull(idx)
+                val playlistId = state.currentPlaylistId
+                Log.d(TAG, "onMediaMetadataChanged: idx=$idx trackId=${track?.id} playlistId=$playlistId newDisplay=$newDisplay currentTitle=${track?.title}")
+                if (track != null && playlistId != null) {
+                    val isNew = displayUpdated.add(track.id)
+                    Log.d(TAG, "onMediaMetadataChanged: isNewUpdate=$isNew displayAlreadyUpdated=${!isNew}")
+                    if (isNew && newDisplay != track.title) {
+                        Log.d(TAG, "onMediaMetadataChanged: launching updateTrackDisplay for trackId=${track.id}")
+                        scope.launch {
+                            repository.updateTrackDisplay(playlistId, track.id, newDisplay)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -230,10 +269,24 @@ class AudioPlayerManager private constructor(private val context: Context) {
             override fun run() {
                 player?.let { p ->
                     if (p.isPlaying || p.playbackState == Player.STATE_READY) {
+                        val pos = p.currentPosition
+                        val dur = if (p.duration > 0) p.duration else 0L
                         _playbackState.value = _playbackState.value.copy(
-                            currentPosition = p.currentPosition,
-                            duration = if (p.duration > 0) p.duration else 0L
+                            currentPosition = pos,
+                            duration = dur
                         )
+                        // At 50% playback, cache the file in the background so it's available
+                        // offline next time — without wasting bandwidth on skipped songs.
+                        if (dur > 0 && pos >= dur / 2) {
+                            val track = _playbackState.value.queue
+                                .getOrNull(p.currentMediaItemIndex)
+                            if (track != null
+                                && track.uri.scheme == "https"
+                                && cacheTriggered.add(track.id)  // add() returns false if already present
+                            ) {
+                                downloadQueue.enqueue(track.id, track.title)
+                            }
+                        }
                     }
                 }
                 handler.postDelayed(this, 200)

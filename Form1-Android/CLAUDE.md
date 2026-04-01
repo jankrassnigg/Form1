@@ -199,3 +199,42 @@ Required SDK: Platform 35 (compileSdk), Platform 34 (targetSdk). Minimum SDK: 24
 - Kotlin version: 2.1.0
 - AGP: 8.7.3
 - Gradle: Kotlin DSL
+
+## Potential Future Tasks
+
+### Audio cache size management
+
+All cached audio files currently go to `context.cacheDir/onedrive/{itemId}` with no size limit and no
+eviction policy — they accumulate indefinitely. The OS may clear `cacheDir` when storage is critically
+low, but offers no guarantees. Three categories of cached files exist with different desired lifecycles:
+
+- `.f2pl` playlist files — tiny, should survive as long as possible
+- Audio files from playlists marked "Available Offline" — explicitly requested by the user, should be
+  treated as permanent (consider moving to `filesDir`)
+- Audio files auto-cached from playback — should be evictable when space is needed (LRU or size cap)
+
+Options under consideration:
+- **Option A** — Move explicitly-offline audio to `filesDir` (never OS-cleared); keep auto-cached audio
+  in `cacheDir` with a configurable size cap and LRU eviction.
+- **Option B** — Keep everything in `cacheDir`, implement a single size cap with LRU eviction that
+  respects the offline flag (don't evict files belonging to offline-flagged playlists).
+- **Option C** — Do nothing; rely on OS and manual cache clearing (simplest, but unbounded growth risk).
+
+No decision made yet on preferred option or default size cap.
+
+### Check the playlist consolidation behavior
+
+IIRC in the PC version, playlists are typically read from multiple files, but when some criteria is true (too many files for one playlist or so), it consolidates all existing files into one new one and deletes the old ones. This is to prevent endless re-creation of files after startup when there weren't any changes. Let's investigate what the code currently does and whether that could create any problems.
+
+### Song Thumbnails
+
+Some songs seem to have embedded thumbnails that the notification card already shows. Could we show that on the player blade (easily)?
+
+### Song Database
+
+The PC version of Form1 uses a sqlite database to cache information locally for speeding up many things. For instance it stores for each song the meta data (artist, album, etc).
+
+This is a long term goal, but we should already keep it in mind. The Android version should probably do something similar. For instance cache, which playlists existed at last startup. Also cache song information to speed up searches etc.
+
+It isn't fully clear to me, what exactly to cache and how, so don't make any concrete plans yet. Theoretically we could also leverage the fact, that we have a PC counterpart, where we can index all data in OneDrive, and keep an up-to-date database there, so that the Android version doesn't need to do anything itself. Though we'd need to use compatible databases on both devices.
+

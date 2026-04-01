@@ -3,6 +3,7 @@ package com.form1.musicplayer
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -191,6 +192,10 @@ fun PlaylistDetailsScreen(
                             onClick = {
                                 scope.launch {
                                     val tracks = resolvePlaybackTracks(pl.tracks, repository)
+                                    val skipped = pl.tracks.size - tracks.size
+                                    if (skipped > 0) {
+                                        Toast.makeText(context, "$skipped song(s) not available offline", Toast.LENGTH_SHORT).show()
+                                    }
                                     if (tracks.isNotEmpty()) audioPlayerViewModel.playQueue(tracks, 0, pl.id, pl.name)
                                 }
                             },
@@ -307,6 +312,11 @@ fun PlaylistDetailsScreen(
                             onClick = {
                                 scope.launch {
                                     val tracks = resolvePlaybackTracks(pl.tracks, repository)
+                                    val resolvedIds = tracks.map { it.id }.toHashSet()
+                                    if (track.source == "onedrive" && !resolvedIds.contains(track.sourceId)) {
+                                        Toast.makeText(context, "\"${track.title}\" is not available offline", Toast.LENGTH_SHORT).show()
+                                        return@launch
+                                    }
                                     val startIndex = pl.tracks.indexOf(track)
                                     if (tracks.isNotEmpty()) audioPlayerViewModel.playQueue(tracks, startIndex.coerceAtMost(tracks.size - 1), pl.id, pl.name)
                                 }

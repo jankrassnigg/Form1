@@ -4,6 +4,10 @@ import android.content.Context
 import android.util.Log
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Caching layer over [OneDriveService].
@@ -35,6 +39,7 @@ class OneDriveCacheManager private constructor(context: Context) {
     val service = OneDriveService(auth)
 
     private val cacheDir = File(context.cacheDir, "onedrive").also { it.mkdirs() }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     companion object {
         private const val TAG = "OneDriveCacheManager"
@@ -113,7 +118,15 @@ class OneDriveCacheManager private constructor(context: Context) {
     /**
      * List files in [folderId] as (name, itemId) pairs.
      * Cached in memory for [FOLDER_TTL_MS] — eliminates repeated API calls during playlist load.
+     * Also persisted to disk so the list survives a fresh start in offline/airplane mode.
      * Call [invalidateFileList] after uploading or deleting files in the folder.
+     *
+     * Fallback chain:
+     *   1. In-memory cache (fresh) → return immediately
+     *   2. Network success → update in-memory + disk cache, return result
+     *   3. Network fail + in-memory stale → return stale (online was recent)
+     *   4. Network fail + no in-memory + disk cache → return disk cache (offline cold start)
+     *   5. All fail → return failure
      */
     suspend fun listFilesInFolderWithIds(folderId: String): Result<List<Pair<String, String>>> {
         val now = System.currentTimeMillis()
@@ -121,14 +134,33 @@ class OneDriveCacheManager private constructor(context: Context) {
         if (cached != null && now - cached.timestamp < FOLDER_TTL_MS) {
             return Result.success(cached.files)
         }
-        return service.listFilesInFolderWithIds(folderId).onSuccess { files ->
+        val result = service.listFilesInFolderWithIds(folderId)
+        result.onSuccess { files ->
             fileListCache[folderId] = CachedFileList(files, now)
+            writeFileListDiskCache(folderId, files)
+        }.onFailure {
+            // Offline fallback 1: return stale in-memory entry
+            if (cached != null) {
+                Log.w(TAG, "Network error listing folder $folderId — returning stale in-memory cache")
+                return Result.success(cached.files)
+            }
+            // Offline fallback 2: return disk-persisted listing from a previous online session
+            val disk = readFileListDiskCache(folderId)
+            if (disk != null) {
+                Log.w(TAG, "Network error listing folder $folderId — returning disk cache")
+                fileListCache[folderId] = CachedFileList(disk, now)
+                return Result.success(disk)
+            }
         }
+        return result
     }
 
     /** Invalidate the file listing cache for [folderId] after a write or delete. */
     fun invalidateFileList(folderId: String) {
         fileListCache.remove(folderId)
+        // Note: disk cache is intentionally kept — it will be overwritten on the next successful
+        // network call. Keeping it means we still serve a useful (slightly stale) list offline
+        // even right after an invalidation that didn't yet reach the server.
     }
 
     // ── Search cache ──────────────────────────────────────────────────────────
@@ -212,7 +244,7 @@ class OneDriveCacheManager private constructor(context: Context) {
     suspend fun getFileContent(itemId: String, isImmutable: Boolean = false): Result<ByteArray> {
         val cachedBytes = readDiskCache(itemId)
 
-        if (cachedBytes != null) {
+        if (cachedBytes != null && cachedBytes.isNotEmpty()) {
             if (isImmutable) return Result.success(cachedBytes)
 
             // eTag-based validation for mutable files
@@ -245,11 +277,50 @@ class OneDriveCacheManager private constructor(context: Context) {
     suspend fun getTextFileContent(itemId: String): Result<String> =
         getFileContent(itemId, isImmutable = true).map { String(it, Charsets.UTF_8) }
 
-    /** Returns true if [itemId] has been downloaded to the disk cache. */
-    fun isCached(itemId: String): Boolean = diskCacheFile(itemId).exists()
+    /** Returns true if [itemId] has been fully downloaded to the disk cache (file exists and is non-empty). */
+    fun isCached(itemId: String): Boolean = diskCacheFile(itemId).let { it.exists() && it.length() > 0 }
 
-    /** Returns the cached [File] for [itemId], or null if not cached. */
-    fun getCachedFile(itemId: String): File? = diskCacheFile(itemId).takeIf { it.exists() }
+/** Returns the cached [File] for [itemId], or null if not cached or file is empty/corrupt. */
+    fun getCachedFile(itemId: String): File? = diskCacheFile(itemId).takeIf { it.exists() && it.length() > 0 }
+
+    // ── File-listing disk cache helpers ──────────────────────────────────────
+
+    /** Stable filename for the persisted file listing of [folderId]. */
+    private fun fileListDiskCacheFile(folderId: String): File {
+        val safe = folderId.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+        return File(cacheDir, "filelist_$safe.tsv")
+    }
+
+    /**
+     * Read a previously persisted file listing from disk.
+     * Format: one entry per line, tab-separated: `name\titemId`.
+     * Returns null if the file does not exist or cannot be parsed.
+     */
+    private fun readFileListDiskCache(folderId: String): List<Pair<String, String>>? {
+        return try {
+            val file = fileListDiskCacheFile(folderId)
+            if (!file.exists()) return null
+            file.readLines()
+                .filter { it.contains('\t') }
+                .map { line ->
+                    val tab = line.indexOf('\t')
+                    line.substring(0, tab) to line.substring(tab + 1)
+                }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to read file list disk cache for $folderId", e)
+            null
+        }
+    }
+
+    /** Persist [files] (name → itemId pairs) to disk for offline use. */
+    private fun writeFileListDiskCache(folderId: String, files: List<Pair<String, String>>) {
+        try {
+            val content = files.joinToString("\n") { (name, itemId) -> "$name\t$itemId" }
+            fileListDiskCacheFile(folderId).writeText(content)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write file list disk cache for $folderId", e)
+        }
+    }
 
     // ── Disk cache helpers ────────────────────────────────────────────────────
 
@@ -266,7 +337,13 @@ class OneDriveCacheManager private constructor(context: Context) {
 
     private fun writeDiskCache(itemId: String, bytes: ByteArray, eTag: String?) {
         try {
-            diskCacheFile(itemId).writeBytes(bytes)
+            // Write to a temp file first, then rename atomically so the final file only
+            // appears once the write is complete. This prevents partially-written files
+            // from being mistaken for valid cached content if the app is killed mid-write.
+            val target = diskCacheFile(itemId)
+            val tmp = File(cacheDir, "$itemId.tmp")
+            tmp.writeBytes(bytes)
+            tmp.renameTo(target)
             if (eTag != null) eTagFile(itemId).writeText(eTag)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to write disk cache for $itemId", e)
