@@ -651,7 +651,10 @@ internal suspend fun playAllOneDriveFiles(
 ) {
     if (files.isEmpty()) return
     val tracks = files.mapNotNull { file ->
-        val downloadUrl = file.downloadUrl ?: cache.getDownloadUrl(file.id).getOrNull()
+        // Prefer local disk cache; only fall back to streaming URL if not cached.
+        val downloadUrl = cache.getCachedFile(file.id)?.toURI()?.toString()
+            ?: file.downloadUrl
+            ?: cache.getDownloadUrl(file.id).getOrNull()
         if (downloadUrl != null) {
             Track(uri = android.net.Uri.parse(downloadUrl), title = file.name, id = file.id)
         } else null

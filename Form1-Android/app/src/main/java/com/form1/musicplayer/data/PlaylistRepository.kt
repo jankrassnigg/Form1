@@ -30,6 +30,12 @@ class PlaylistRepository private constructor(context: Context) {
     /** True while the initial playlist load from storage is in progress. */
     val isLoading: StateFlow<Boolean> get() = fileManager.isLoading
 
+    /** True when the last load attempt failed (network unavailable and no disk cache). */
+    val loadFailed: StateFlow<Boolean> get() = fileManager.loadFailed
+
+    /** Invalidate the file list cache and reload playlists from storage. */
+    fun reload() = fileManager.reload()
+
     suspend fun getPlaylistWithTracks(playlistId: Long): Playlist? =
         fileManager.getPlaylistWithTracks(playlistId)
 

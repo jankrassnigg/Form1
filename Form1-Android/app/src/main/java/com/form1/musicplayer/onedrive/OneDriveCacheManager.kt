@@ -204,6 +204,13 @@ class OneDriveCacheManager private constructor(context: Context) {
      *   4. Failure.
      */
     suspend fun getDownloadUrl(itemId: String): Result<String> {
+        // Always prefer the local disk cache — instant playback, no bandwidth used.
+        val localFile = getCachedFile(itemId)
+        if (localFile != null) {
+            Log.d(TAG, "Serving $itemId from disk cache")
+            return Result.success(localFile.toURI().toString())
+        }
+
         val now = System.currentTimeMillis()
         val cached = urlCache[itemId]
 
@@ -215,13 +222,7 @@ class OneDriveCacheManager private constructor(context: Context) {
         result.onSuccess { url ->
             urlCache[itemId] = CachedUrl(url, now)
         }.onFailure {
-            // Offline fallback 1: serve from disk cache
-            val localFile = getCachedFile(itemId)
-            if (localFile != null) {
-                Log.i(TAG, "Offline: serving cached file for $itemId")
-                return Result.success(localFile.toURI().toString())
-            }
-            // Offline fallback 2: return stale URL (might still work)
+            // Offline fallback: return stale URL (might still work)
             if (cached != null) {
                 Log.w(TAG, "Network error for $itemId — returning stale URL")
                 return Result.success(cached.url)

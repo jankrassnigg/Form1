@@ -33,6 +33,18 @@ class ProfileManager(
     // ── Public API ─────────────────────────────────────────────────────────────
 
     /**
+     * Invalidate the cached file listing for the current profile folder.
+     * Call this before [listFiles] when a fresh network fetch is desired (e.g. on manual retry).
+     */
+    suspend fun invalidateCache() {
+        val storageType = profileConfig.storageType.first()
+        if (storageType == StorageType.ONEDRIVE) {
+            val folderId = profileConfig.oneDriveFolderId.first() ?: return
+            cache.invalidateFileList(folderId)
+        }
+    }
+
+    /**
      * List profile files with the given [extension] (e.g. "f2pl").
      * Returns file names only (not full paths).
      */

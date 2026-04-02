@@ -91,7 +91,7 @@ fun FileBrowserScreen(
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(1) }
     var showSortMenu by remember { mutableStateOf(false) }
 
     ModalNavigationDrawer(

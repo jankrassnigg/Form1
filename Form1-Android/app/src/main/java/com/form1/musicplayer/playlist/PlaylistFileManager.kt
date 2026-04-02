@@ -112,6 +112,10 @@ class PlaylistFileManager private constructor(context: Context) {
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    /** True when the last load attempt failed (e.g. network unavailable and no disk cache). */
+    private val _loadFailed = MutableStateFlow(false)
+    val loadFailed: StateFlow<Boolean> = _loadFailed.asStateFlow()
+
     /** pending debounce jobs keyed by playlist guid */
     private val debounceJobs = mutableMapOf<String, Job>()
 
@@ -150,8 +154,30 @@ class PlaylistFileManager private constructor(context: Context) {
         }
     }
 
+    /**
+     * Re-fetch playlists from storage — invalidates the file list cache first so a network call
+     * is always attempted. Safe to call from any thread; launches on the internal IO scope.
+     */
+    fun reload() {
+        scope.launch {
+            _isLoading.value = true
+            _loadFailed.value = false
+            playlists.clear()
+            profileManager.invalidateCache()
+            loadAll()
+        }
+    }
+
     private suspend fun loadAll() {
-        val fileNames = profileManager.listFiles(EXTENSION).getOrElse { emptyList() }
+        _loadFailed.value = false
+        val fileNamesResult = profileManager.listFiles(EXTENSION)
+        if (fileNamesResult.isFailure) {
+            Log.w(TAG, "Failed to list playlist files: ${fileNamesResult.exceptionOrNull()?.message}")
+            _loadFailed.value = true
+            _isLoading.value = false
+            return
+        }
+        val fileNames = fileNamesResult.getOrThrow()
         val grouped = mutableMapOf<String, MutableList<Pair<String, F2plFile>>>()
 
         for (name in fileNames) {

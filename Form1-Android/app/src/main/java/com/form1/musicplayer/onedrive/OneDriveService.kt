@@ -95,11 +95,25 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
                 return@withContext Result.failure(Exception("Not authenticated"))
             }
 
-            // Build URL for folder contents
-            val url = if (folderId == null) {
-                "$GRAPH_API_BASE/me/drive/root/children"
-            } else {
-                "$GRAPH_API_BASE/me/drive/items/$folderId/children"
+            // Build URL for folder contents.
+            // Remote/shared folders have compound IDs encoded as "driveId:itemId" and require
+            // the /drives/{driveId}/items/{itemId}/children endpoint.
+            // We also remember the driveId context so child folders inherit it.
+            val contextDriveId: String?
+            val url = when {
+                folderId == null -> {
+                    contextDriveId = null
+                    "$GRAPH_API_BASE/me/drive/root/children"
+                }
+                folderId.contains(':') -> {
+                    val (driveId, itemId) = folderId.split(':', limit = 2)
+                    contextDriveId = driveId
+                    "$GRAPH_API_BASE/drives/$driveId/items/$itemId/children"
+                }
+                else -> {
+                    contextDriveId = null
+                    "$GRAPH_API_BASE/me/drive/items/$folderId/children"
+                }
             }
 
             val request = Request.Builder()
@@ -127,14 +141,30 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
                 apiResponse.value.forEach { item ->
                     when {
                         item.folder != null -> {
-                            // It's a folder
-                            folders.add(item.toOneDriveFolder())
+                            // Regular folder — if we're inside a remote drive, prefix the ID so
+                            // subsequent navigation uses the correct /drives/{driveId}/... endpoint.
+                            val folder = if (contextDriveId != null) {
+                                item.toOneDriveFolder().copy(id = "$contextDriveId:${item.id}")
+                            } else {
+                                item.toOneDriveFolder()
+                            }
+                            folders.add(folder)
+                        }
+                        item.remoteItem?.folder != null -> {
+                            // Shared/remote folder integrated into this drive (e.g. via "Add shortcut to My files")
+                            folders.add(item.toRemoteOneDriveFolder())
                         }
                         item.file != null -> {
-                            // It's a file - check if it's an audio file
+                            // It's a file - check if it's an audio file.
+                            // If inside a remote drive, prefix the ID so URL resolution uses the
+                            // correct /drives/{driveId}/items/{itemId} endpoint later.
                             val extension = item.name.substringAfterLast('.', "").lowercase()
                             if (extension in AUDIO_EXTENSIONS) {
-                                audioFiles.add(item.toOneDriveFile())
+                                val file = item.toOneDriveFile()
+                                audioFiles.add(
+                                    if (contextDriveId != null) file.copy(id = "$contextDriveId:${item.id}")
+                                    else file
+                                )
                             }
                         }
                     }
@@ -192,10 +222,13 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
 
             // Phase 1: Graph search by the primary keyword — matches file and folder names
             val escaped = primaryKeyword.replace("'", "''")
-            val phase1Url = if (rootFolderId.isNullOrEmpty()) {
-                "$GRAPH_API_BASE/me/drive/root/search(q='$escaped')"
-            } else {
-                "$GRAPH_API_BASE/me/drive/items/$rootFolderId/search(q='$escaped')"
+            val phase1Url = when {
+                rootFolderId.isNullOrEmpty() -> "$GRAPH_API_BASE/me/drive/root/search(q='$escaped')"
+                rootFolderId.contains(':') -> {
+                    val (driveId, itemId) = rootFolderId.split(':', limit = 2)
+                    "$GRAPH_API_BASE/drives/$driveId/items/$itemId/search(q='$escaped')"
+                }
+                else -> "$GRAPH_API_BASE/me/drive/items/$rootFolderId/search(q='$escaped')"
             }
 
             val phase1Items = fetchItems(phase1Url, accessToken)
@@ -206,10 +239,16 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
                 .filter { it.file != null && it.name.substringAfterLast('.', "").lowercase() in AUDIO_EXTENSIONS }
                 .forEach { if (seen.add(it.id)) candidates.add(it.toOneDriveFile()) }
 
-            // Phase 2: expand matching folders via children endpoint (correctly scoped)
-            val folderHits = phase1Items.filter { it.folder != null }.take(5)
+            // Phase 2: expand matching folders via children endpoint (correctly scoped).
+            // Use compound "driveId:itemId" for remote folders so listChildren hits the right endpoint.
+            val folderHits = phase1Items.filter { it.folder != null || it.remoteItem?.folder != null }.take(5)
             for (artistFolder in folderHits) {
-                val level1 = listChildren(artistFolder.id, accessToken) ?: continue
+                val browserId = if (artistFolder.remoteItem?.folder != null) {
+                    artistFolder.toRemoteOneDriveFolder().id
+                } else {
+                    artistFolder.id
+                }
+                val level1 = listChildren(browserId, accessToken) ?: continue
 
                 level1.filter { it.file != null && it.name.substringAfterLast('.', "").lowercase() in AUDIO_EXTENSIONS }
                     .forEach { if (seen.add(it.id)) candidates.add(it.toOneDriveFile()) }
@@ -424,9 +463,17 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
             }
         }
 
-    /** Fetch the direct children of a folder. Blocking — call from Dispatchers.IO only. */
-    private fun listChildren(folderId: String, accessToken: String): List<DriveItem>? =
-        fetchItems("$GRAPH_API_BASE/me/drive/items/$folderId/children", accessToken)
+    /** Fetch the direct children of a folder. Blocking — call from Dispatchers.IO only.
+     *  Supports compound "driveId:itemId" IDs for remote/shared folders. */
+    private fun listChildren(folderId: String, accessToken: String): List<DriveItem>? {
+        val url = if (folderId.contains(':')) {
+            val (driveId, itemId) = folderId.split(':', limit = 2)
+            "$GRAPH_API_BASE/drives/$driveId/items/$itemId/children"
+        } else {
+            "$GRAPH_API_BASE/me/drive/items/$folderId/children"
+        }
+        return fetchItems(url, accessToken)
+    }
 
     /** Fetch drive items from [url]. Blocking — call from Dispatchers.IO only. */
     private fun fetchItems(url: String, accessToken: String): List<DriveItem>? {
@@ -453,7 +500,12 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
             val accessToken = authManager.getAccessToken()
                 ?: return@withContext Result.failure(Exception("Not authenticated"))
 
-            val url = "$GRAPH_API_BASE/me/drive/items/$fileId"
+            val url = if (fileId.contains(':')) {
+                val (driveId, itemId) = fileId.split(':', limit = 2)
+                "$GRAPH_API_BASE/drives/$driveId/items/$itemId"
+            } else {
+                "$GRAPH_API_BASE/me/drive/items/$fileId"
+            }
             val request = Request.Builder()
                 .url(url)
                 .addHeader("Authorization", "Bearer $accessToken")
@@ -495,7 +547,12 @@ class OneDriveService(private val authManager: OneDriveAuthManager) {
             val accessToken = authManager.getAccessToken()
                 ?: return@withContext Result.failure(Exception("Not authenticated"))
 
-            val url = "$GRAPH_API_BASE/me/drive/items/$itemId/content"
+            val url = if (itemId.contains(':')) {
+                val (driveId, id) = itemId.split(':', limit = 2)
+                "$GRAPH_API_BASE/drives/$driveId/items/$id/content"
+            } else {
+                "$GRAPH_API_BASE/me/drive/items/$itemId/content"
+            }
             val request = Request.Builder()
                 .url(url)
                 .addHeader("Authorization", "Bearer $accessToken")
@@ -575,7 +632,8 @@ private data class DriveItem(
     val eTag: String?,
     val file: FileProperties?,   // Present if it's a file (not folder)
     val folder: FolderProperties?, // Present if it's a folder (not file)
-    val parentReference: ParentReference?
+    val parentReference: ParentReference?,
+    val remoteItem: RemoteItemProperties? // Present for shared/remote folders integrated into this drive
 )
 
 private data class ParentReference(
@@ -588,6 +646,18 @@ private data class FileProperties(
 
 private data class FolderProperties(
     val childCount: Int
+)
+
+/** Facet present on items that live in another drive (e.g. shared folders added via "Add shortcut"). */
+private data class RemoteItemProperties(
+    val id: String,
+    val folder: FolderProperties?,
+    val file: FileProperties?,
+    val parentReference: RemoteParentReference?
+)
+
+private data class RemoteParentReference(
+    val driveId: String?
 )
 
 private fun DriveItem.toOneDriveFile() = OneDriveFile(
@@ -606,3 +676,19 @@ private fun DriveItem.toOneDriveFolder() = OneDriveFolder(
     name = name,
     childCount = folder?.childCount ?: 0
 )
+
+/**
+ * Converts a remote/shared DriveItem (one that has a [remoteItem] facet) to an [OneDriveFolder].
+ * The folder ID is encoded as "driveId:itemId" so the browse/listing code can use the correct
+ * `/drives/{driveId}/items/{itemId}/children` endpoint when the user navigates into it.
+ */
+private fun DriveItem.toRemoteOneDriveFolder(): OneDriveFolder {
+    val remote = remoteItem!!
+    val remoteDriveId = remote.parentReference?.driveId
+    val compoundId = if (remoteDriveId != null) "$remoteDriveId:${remote.id}" else remote.id
+    return OneDriveFolder(
+        id = compoundId,
+        name = name,
+        childCount = remote.folder?.childCount ?: 0
+    )
+}
