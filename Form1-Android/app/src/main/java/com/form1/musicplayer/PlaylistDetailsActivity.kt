@@ -317,8 +317,11 @@ fun PlaylistDetailsScreen(
                                         Toast.makeText(context, "\"${track.title}\" is not available offline", Toast.LENGTH_SHORT).show()
                                         return@launch
                                     }
-                                    val startIndex = pl.tracks.indexOf(track)
-                                    if (tracks.isNotEmpty()) audioPlayerViewModel.playQueue(tracks, startIndex.coerceAtMost(tracks.size - 1), pl.id, pl.name)
+                                    // Index into the resolved list (which may have fewer items if some
+                                    // tracks were filtered out offline), not the original playlist list.
+                                    val startIndex = tracks.indexOfFirst { it.id == track.sourceId }
+                                        .coerceAtLeast(0)
+                                    if (tracks.isNotEmpty()) audioPlayerViewModel.playQueue(tracks, startIndex, pl.id, pl.name)
                                 }
                             },
                             onDelete = {
